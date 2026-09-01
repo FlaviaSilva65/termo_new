@@ -1,0 +1,32 @@
+0000000000000000000000000000000000000000 76d158ec84edb885eda39cdced133ee12eb41818 Flavia Silva <flaviaass65@gmail.com> 1741377409 -0300	commit (initial): Primeiro commit
+76d158ec84edb885eda39cdced133ee12eb41818 0000000000000000000000000000000000000000 Flavia Silva <flaviaass65@gmail.com> 1741377451 -0300	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 76d158ec84edb885eda39cdced133ee12eb41818 Flavia Silva <flaviaass65@gmail.com> 1741377451 -0300	Branch: renamed refs/heads/master to refs/heads/main
+76d158ec84edb885eda39cdced133ee12eb41818 911d8236c15b89b5dfe624cb6aa0e3f658dda44d Flavia Silva <flaviaass65@gmail.com> 1741810151 -0300	commit: atualização dos templates usuarios
+911d8236c15b89b5dfe624cb6aa0e3f658dda44d e7e992c36d27530a30d06d8cf5c05c379ebd9f31 Flavia Silva <flaviaass65@gmail.com> 1741896232 -0300	commit: inserindo relacionamento dos usuarios com as escolas
+e7e992c36d27530a30d06d8cf5c05c379ebd9f31 9bb81482df2e93538a6df634ee6466d1f56b0078 Flavia Silva <flaviaass65@gmail.com> 1741982595 -0300	commit: criando setores e tabela de relacionamento com os usuarios
+9bb81482df2e93538a6df634ee6466d1f56b0078 91329e6959c26bdd4fa584744e89e044d035b1fb Flavia Silva <flaviaass65@gmail.com> 1742241532 -0300	commit: Trabalhando como setorizar as escolas
+91329e6959c26bdd4fa584744e89e044d035b1fb b8f1b2a654a0e0e6767147b5f82a7fccccc348af Flavia Silva <flaviaass65@gmail.com> 1742327911 -0300	commit: "Trabalhando com o cadastro do usuario, superv."
+b8f1b2a654a0e0e6767147b5f82a7fccccc348af 29bc8bf003fdd1dfb363525bb7c7a334ace00f0a Flavia Silva <flaviaass65@gmail.com> 1742328209 -0300	commit: Trabalhando com cadastro do supervisor ou outro usuário
+29bc8bf003fdd1dfb363525bb7c7a334ace00f0a f0a89f76dca2d91e8298add8de43b2dfd2831cef Flavia Silva <flaviaass65@gmail.com> 1742414055 -0300	commit: tela de add Usuarios
+f0a89f76dca2d91e8298add8de43b2dfd2831cef 5ce3a240849f4e30a44d307441c9d970ba033634 Flavia Silva <flaviaass65@gmail.com> 1742484340 -0300	commit: primeiro commit em 20_03_2025
+5ce3a240849f4e30a44d307441c9d970ba033634 56e7cb230ea73c1d35b2d2dbcfc11cabf583ca59 Flavia Silva <flaviaass65@gmail.com> 1742500402 -0300	commit: Commit da função Cropped em teste
+56e7cb230ea73c1d35b2d2dbcfc11cabf583ca59 a3e32981ec8e9e27d32caaf2995a45f0d7cce612 Flavia Silva <flaviaass65@gmail.com> 1742587081 -0300	commit: Trabalhando com crop aplicando um video
+a3e32981ec8e9e27d32caaf2995a45f0d7cce612 5b8b5444936e547687f909ab990d66d6338fe962 Flavia Silva <flaviaass65@gmail.com> 1742846493 -0300	commit: Trabalhando com croppie
+5b8b5444936e547687f909ab990d66d6338fe962 c71045cb6e1618c1b7aee738ff8336c65741dd7d Flavia Silva <flaviaass65@gmail.com> 1742933183 -0300	commit: testando o croppie
+c71045cb6e1618c1b7aee738ff8336c65741dd7d a697b5aa27b22ab173a302d1b813c21e88197558 Flavia Silva <flaviaass65@gmail.com> 1743796279 -0300	commit: mudança de login
+a697b5aa27b22ab173a302d1b813c21e88197558 81de6332101ae9e96d6e2b70e2f25b1a7d2b0f03 Flavia Silva <flaviaass65@gmail.com> 1744228223 -0300	commit: Tela de Add e Edit do usuário
+81de6332101ae9e96d6e2b70e2f25b1a7d2b0f03 edf90f7df0a35987787269f3d6afa26ebdf51e19 Flavia Silva <flaviaass65@gmail.com> 1744401552 -0300	commit: criando dashboard do supervisor
+edf90f7df0a35987787269f3d6afa26ebdf51e19 34db1192ab6ea493745817e8a07d6b121095a875 Flavia Silva <flaviaass65@gmail.com> 1744660339 -0300	commit: acessando banco Escolas e pegando dados atual dos users
+34db1192ab6ea493745817e8a07d6b121095a875 d886aa86864886faf75f47fa8f79281648b4d08c Flavia Silva <flaviaass65@gmail.com> 1744746928 -0300	commit: equalizando os banco de dados
+d886aa86864886faf75f47fa8f79281648b4d08c 239fcaad6bd0b88cbd70a980caa5bc01aef19e8d Flavia Silva <flaviaass65@gmail.com> 1746734806 -0300	commit: Atualizações, tabelas de Funções e Relatórios e Add do Relatório
+239fcaad6bd0b88cbd70a980caa5bc01aef19e8d 752e5a50c1986cdd926331bafe6444313dabb8e2 Flavia Silva <flaviaass65@gmail.com> 1746820297 -0300	commit: Atualizações, padronizando para mobile
+752e5a50c1986cdd926331bafe6444313dabb8e2 dc59b04f237babc5356572a9115b9c487b3a0410 Flavia Silva <flaviaass65@gmail.com> 1747080457 -0300	commit: relatorio add
+dc59b04f237babc5356572a9115b9c487b3a0410 28c97e278ebe63e68ef5f9e2a0ce57566e99cddc Flavia Silva <flaviaass65@gmail.com> 1747425770 -0300	commit: Criando tela de Edição, refatorando tela Add
+28c97e278ebe63e68ef5f9e2a0ce57566e99cddc a928d979bf787e5765afec59dfecda49387b6550 Flavia Silva <flaviaass65@gmail.com> 1747685583 -0300	commit: Trabalhando com edição do relatório
+a928d979bf787e5765afec59dfecda49387b6550 c879697f816a255870a0fcd39d244086f2a66ca7 Flavia Silva <flaviaass65@gmail.com> 1747771633 -0300	commit: Atualização das funcionalidades, nova Tela (dash_escolas)
+c879697f816a255870a0fcd39d244086f2a66ca7 91e218ba35661cb010a4cfb5d66702a0f4a44fdf Flavia Silva <flaviaass65@gmail.com> 1747857704 -0300	commit: Atualizando o código
+91e218ba35661cb010a4cfb5d66702a0f4a44fdf eddd65ffa8ea77833b68ab6dda625372056b594f Flavia Silva <flaviaass65@gmail.com> 1748030300 -0300	commit: Criando dash_escolas e alterando layout
+eddd65ffa8ea77833b68ab6dda625372056b594f 9899a0f42b580f0156057d0f5445340b799bdc64 Flavia Silva <flaviaass65@gmail.com> 1748290542 -0300	commit: Refatorando tela de add, js
+9899a0f42b580f0156057d0f5445340b799bdc64 ae350edce342a5d29ec44b5e5be8a171841fe4e7 Flavia Silva <flaviaass65@gmail.com> 1748375973 -0300	commit: refatorando Layout dash_supervisor
+ae350edce342a5d29ec44b5e5be8a171841fe4e7 4a5d43f816b02b5e0d5cfdb0ff3c9f18dafbd764 Flavia Silva <flaviaass65@gmail.com> 1748549213 -0300	commit: impressão do termo
+4a5d43f816b02b5e0d5cfdb0ff3c9f18dafbd764 a0ae68c21763d5bcb09383c20da38804cf8692d7 Flavia Silva <flaviaass65@gmail.com> 1787947315 -0300	commit: atualização em 28_08_2026

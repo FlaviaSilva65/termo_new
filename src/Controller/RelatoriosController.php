@@ -1,0 +1,1467 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Model\Entity\Relatorio;
+use Cake\ORM\Table;
+use Cake\ORM\TableRegistry;
+use Authorization\Exception\ForbiddenException;
+use Cake\I18n\Date;
+use DateTime;
+
+/**
+ * Relatorios Controller
+ *
+ * @property \App\Model\Table\RelatoriosTable $Relatorios
+ */
+class RelatoriosController extends AppController
+{
+    public function initialize(): void
+    {
+        parent::initialize();
+        // $this->loadComponent('CrachaDigital');
+        $this->Authentication->allowUnauthenticated(['manterPerguntas']);
+    }
+
+    public function manterPerguntas($dimensao, $escola_id, $id = null)
+    {
+        $this->Authorization->skipAuthorization();
+        $identity = $this->Authentication->getIdentity();
+
+        $queryPerguntas = $this->fetchTable('Perguntas');
+        $queryOcorrencias = $this->fetchTable('Ocorrencias');
+        $escola = $this->fetchTable('UnidEscolares');
+        $Respostas = $this->fetchTable('Respostas');
+        $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
+
+        // \Cake\Log\Log::debug('X-Requested-With: ' . $this->request->getHeaderLine('X-Requested-With'));
+        // \Cake\Log\Log::debug('is ajax: ' . var_export($this->request->is('ajax'), true));
+
+        $escolaName = $escola->find()
+            ->select(['sigla', 'nm_unid_escolar'])
+            ->where(['id' => $escola_id])
+            ->first();
+
+        $relatorio = $this->Relatorios->newEmptyEntity();
+
+        if ($id) {
+            $relatorio = $this->Relatorios->get($id);
+        } else {
+            $relatorioExistente = $this->Relatorios->find()
+                ->where([
+                    'usuario_id' => $identity->id,
+                    'unid_escolar_id' => $escola_id,
+                    'YEAR(data)' => date('Y'),
+                    'ic_rascunho' => 1, // ainda em rascunho
+                ])
+                ->orderByDesc('id')
+                ->first();
+
+            if ($relatorioExistente) {
+                $this->Authorization->authorize($relatorioExistente, 'manterPerguntas');
+                return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorioExistente->id]);
+            }
+
+            $relatorio_ano = $this->Relatorios->find()->where(['unid_escolar_id' => $escola_id, 'YEAR(data)' => date('Y')])->all();
+            $ultimo_relatorio = $relatorio_ano->last();
+
+            $termo_id = $ultimo_relatorio ? $ultimo_relatorio->termo_id + 1 : 1;
+            // if ($ultimo_relatorio) {
+            //     $termo_id = $ultimo_relatorio->termo_id + 1;
+            // } else {
+            //     $termo_id = 1;
+            // }
+
+            $relatorio = $this->Relatorios->newEntity([
+                'termo_id' => $termo_id,
+                'usuario_id' => $identity->id,
+                'unid_escolar_id' => $escola_id,
+                'data' => date('Y-m-d'),
+                'ic_rascunho' => 1, // 1 = rascunho, 0 = finalizado
+            ]);
+
+            // debug($relatorio);
+            // die;
+            $this->Relatorios->save($relatorio);
+            // $id = $relatorio->id;
+            return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorio->id]);
+        }
+
+        $this->Authorization->authorize($relatorio, 'manterPerguntas');
+
+        //Monta o set da seção do termo e garante o nº de dimensões de
+        $dimensao = $this->secoesTermo($dimensao, $queryPerguntas, $relatorio->id);
+
+        if ($this->request->is(['post', 'put'])) {
+            $data = $this->request->getData();
+
+            foreach ($data['respostas'] ?? [] as $perguntaId => $resposta) {
+                $existente = $Respostas->find()
+                    ->where(['relatorio_id' => $id, 'pergunta_id' => $perguntaId])
+                    ->first();
+
+                $entity = $existente ?: $Respostas->newEntity([
+                    'relatorio_id' => $id,
+                    'pergunta_id' => $perguntaId,
+                ]);
+
+                $entity->resposta = $resposta['resposta'] ?? null;
+                $entity->observacao = $resposta['observacao'] ?? null;
+                $entity->status = isset($resposta['status']) ? (int)$resposta['status'] : 1;
+
+                // debug($entity);
+                // die;
+
+                $Respostas->save($entity);
+
+                if (isset($resposta['ocorrencias'])) {
+                    $idsPossiveis = $queryOcorrencias->find()
+                        ->select(['id'])
+                        ->where(['pergunta_id' => $perguntaId])
+                        ->all()
+                        ->extract('id')
+                        ->toArray();
+
+                    $OcorrenciaRelatorios->deleteAll([
+                        'relatorio_id' => $id,
+                        'ocorrencia_id IN' => $idsPossiveis,
+                    ]);
+
+                    // Filtra somente as ocorrências que foram de fato marcadas (valor "1")
+                    $ocorrenciasMarcadas = array_filter($resposta['ocorrencias'], function ($valor) {
+                        return (string)$valor === '1';
+                    });
+
+                    foreach (array_keys($ocorrenciasMarcadas) as $ocorrenciaId) {
+                        $OcorrenciaRelatorios->save($OcorrenciaRelatorios->newEntity([
+                            'relatorio_id' => $id,
+                            'ocorrencia_id' => $ocorrenciaId,
+                        ]));
+                    }
+                }
+            }
+
+            $isAjax = $this->request->is('ajax')
+                || $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest'
+                || (bool)$this->request->getData('_ajax');
+
+            if ($isAjax) {
+                $contagem = $this->contarRespondidasPorDimensao($id, $queryPerguntas);
+
+                $this->autoRender = false;
+                $this->response = $this->response
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => true,
+                        'relatorio_id' => $id,
+                        'contagem' => $contagem,
+                    ]));
+                return $this->response;
+            }
+
+            $this->Flash->success('Respostas salvas.');
+
+            $proximaDimensao = (int)$this->request->getData('_proxima_dimensao', $dimensao);
+            return $this->redirect(['action' => 'manterPerguntas', $proximaDimensao, $escola_id, $id]);
+        }
+
+        //Perguntas de acordo com a dimensão
+        $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes'])->where(['dimensao' => $dimensao])->orderByAsc('ordem')->all();
+
+        //Monta array com ocorrencis existentes em relação a pergunta
+        $ocorrencias = [];
+        foreach ($perguntas as $p)
+            if ($p->tipo == 'checkbox')
+                $ocorrencias[$p->id] = $queryOcorrencias->find()
+                    ->select(['id', 'nm_tp_ocorrencia'])
+                    ->where(['pergunta_id' => $p->id])
+                    ->orderBy(['CASE WHEN nm_tp_ocorrencia = "Outros" THEN 1 ELSE 0 END' => 'ASC', 'nm_tp_ocorrencia' => 'ASC'])
+                    ->all();
+        $perguntaIds = $perguntas->extract('id')->toArray();
+
+        // $this->Flash->error('Não foi possível salvar as respostas.');
+
+        if ($id) {
+            $respostasSalvas = $Respostas->find()
+                ->where(['relatorio_id' => $id, 'pergunta_id IN' => $perguntaIds])
+                ->all()
+                ->indexBy('pergunta_id')
+                ->toArray();
+
+            $ocorrenciaIdsSalvas = $OcorrenciaRelatorios->find()
+                ->where(['relatorio_id' => $id])
+                ->all()
+                ->extract('ocorrencia_id')
+                ->toArray();
+        }
+
+        $this->set([
+            'escolaName' => $escolaName,
+            'relatorio' => $relatorio,
+            'dimensao' => $dimensao,
+            'perguntas' => $perguntas,
+            'ocorrencias' => $ocorrencias,
+            'escola_id' => $escola_id,
+            'respostasSalvas' => $respostasSalvas ?? [],
+            'ocorrenciaIdsSalvas' => $ocorrenciaIdsSalvas ?? []
+
+        ]);
+    }
+
+    private function secoesTermo($dimensao, $queryPerguntas, $relatorioId = null)
+    {
+        // Qtd de ocorrências por dimensão
+        $Dimensoes = $this->fetchTable('Dimensao');
+        $Respostas = $this->fetchTable('Respostas');
+        $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
+        $Ocorrencias = $this->fetchTable('Ocorrencias');
+
+        // Total de perguntas por dimensão
+        $countQuery = $queryPerguntas->find();
+        $totalPorDimensao = $countQuery
+            ->select(['dimensao', 'total' => $countQuery->func()->count('*')])
+            ->groupBy('dimensao')
+            ->orderByAsc('dimensao')
+            ->all()
+            ->indexBy('dimensao')
+            ->toArray();
+
+        // $dt = $query->select(['dimensao', 'total' => $query->func()->count('*')])->groupBy('dimensao')->orderByAsc('dimensao')->all()->indexBy('dimensao')->toArray();
+
+        // Perguntas (id + dimensao + tipo), para cruzar com o que foi respondido
+        $perguntas = $queryPerguntas->find()
+            ->select(['id', 'dimensao', 'tipo'])
+            ->all();
+
+        $perguntaIdsRespondidas = [];
+
+        if ($relatorioId) {
+            // Todas as respostas salvas para este relatório (radio e checkbox geram linha aqui)
+            $respostasSalvas = $Respostas->find()
+                ->select(['pergunta_id', 'resposta', 'observacao'])
+                ->where(['relatorio_id' => $relatorioId])
+                ->all()
+                ->indexBy('pergunta_id')
+                ->toArray();
+
+            // Perguntas do tipo checkbox que têm ao menos 1 ocorrência marcada
+            $ocorrenciaIdsMarcadas = $OcorrenciaRelatorios->find()
+                ->select(['ocorrencia_id'])
+                ->where(['relatorio_id' => $relatorioId])
+                ->all()
+                ->extract('ocorrencia_id')
+                ->toArray();
+
+            $perguntaIdsComOcorrenciaMarcada = [];
+            if ($ocorrenciaIdsMarcadas) {
+                $perguntaIdsComOcorrenciaMarcada = $Ocorrencias->find()
+                    ->select(['pergunta_id'])
+                    ->where(['id IN' => $ocorrenciaIdsMarcadas])
+                    ->all()
+                    ->extract('pergunta_id')
+                    ->toArray();
+            }
+
+            foreach ($perguntas as $p) {
+                $resposta = $respostasSalvas[$p->id] ?? null;
+                $observacaoPreenchida = $resposta && trim((string)$resposta['observacao']) !== '';
+
+                if ($p->tipo === 'checkbox') {
+                    // Respondida se: observação preenchida OU alguma ocorrência marcada
+                    $temOcorrenciaMarcada = in_array($p->id, $perguntaIdsComOcorrenciaMarcada);
+
+                    if ($observacaoPreenchida || $temOcorrenciaMarcada) {
+                        $perguntaIdsRespondidas[] = $p->id;
+                    }
+                } elseif ($p->tipo === 'texto') {
+                    // Observação é a própria resposta
+                    if ($observacaoPreenchida) {
+                        $perguntaIdsRespondidas[] = $p->id;
+                    }
+                } else {
+                    // radio: respondida se "resposta" está preenchido
+                    if ($resposta && trim((string)$resposta['resposta']) !== '') {
+                        $perguntaIdsRespondidas[] = $p->id;
+                    }
+                }
+            }
+        }
+
+        // Contagem de respondidas por dimensão
+        $respondidasPorDimensao = [];
+        foreach ($perguntas as $p) {
+            if (in_array($p->id, $perguntaIdsRespondidas)) {
+                $respondidasPorDimensao[$p->dimensao] = ($respondidasPorDimensao[$p->dimensao] ?? 0) + 1;
+            }
+        }
+
+        // Seções do Termo, vindas da tabela Dimensoes
+        $dimensoesDb = $Dimensoes->find()
+            ->select(['id', 'titCompleto', 'titParcial'])
+            ->orderByAsc('id')
+            ->all();
+
+        $dimensoes = [];
+        foreach ($dimensoesDb as $d) {
+            $dimensoes[] = (object)[
+                'dimensao' => $d->id,
+                'titCompleto' => $d->titCompleto,
+                'titParcial' => $d->titParcial,
+                'pergTotal' => $totalPorDimensao[$d->id]['total'] ?? 0,
+                'pergRespondidas' => $respondidasPorDimensao[$d->id] ?? 0,
+            ];
+        }
+
+        // Mantém Botões Etapa anterior e posterior em seus limites
+        // if ($dimensao < 1) $dimensao = 1;
+        // else if ($dimensao > count($dimensoes)) $dimensao = count($dimensoes);
+
+        if ($dimensao <= 1) {
+            $desabilitaAnt = 'disabled';
+            $dimensao = 1;
+        } else if ($dimensao >= count($dimensoes)) {
+            $desabilitaProx = 'disabled';
+            $dimensao = count($dimensoes);
+        }
+
+        $this->set([
+            'romanos' => [
+                1 => 'I',
+                2 => 'II',
+                3 => 'III',
+                4 => 'IV',
+                5 => 'V',
+                6 => 'VI',
+                7 => 'VII',
+                8 => 'VIII',
+                9 => 'IX',
+                10 => 'X',
+                11 => 'XI',
+                12 => 'XII',
+                13 => 'XIII',
+                14 => 'XIV',
+                15 => 'XV',
+                16 => 'XVI',
+                17 => 'XVII',
+                18 => 'XVIII',
+                19 => 'XIX',
+                20 => 'XX'
+            ],
+            'dimensoes' => $dimensoes,
+            'desabilitaAnt' => $desabilitaAnt ?? '',
+            'desabilitaProx' => $desabilitaProx ?? '',
+        ]);
+        return $dimensao;
+    }
+
+    private function contarRespondidasPorDimensao($id, $queryPerguntas)
+    {
+        if (!$id) {
+            return [];
+        }
+
+        $Respostas = $this->fetchTable('Respostas');
+        $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
+        $Ocorrencias = $this->fetchTable('Ocorrencias');
+
+        $perguntas = $queryPerguntas->find()
+            ->select(['id', 'dimensao', 'tipo'])
+            ->all();
+
+        $respostas = $Respostas->find()
+            ->select(['pergunta_id', 'resposta', 'observacao']) // <- adicionado 'observacao'
+            ->where(['relatorio_id' => $id])
+            ->all()
+            ->indexBy('pergunta_id')
+            ->toArray();
+
+        // Mapa ocorrencia_id -> pergunta_id, pra saber a quem pertence cada ocorrência marcada
+        $ocorrenciaParaPergunta = $Ocorrencias->find()
+            ->select(['id', 'pergunta_id'])
+            ->all()
+            ->indexBy('id')
+            ->toArray();
+
+        $ocorrenciaIdsSalvas = $OcorrenciaRelatorios->find()
+            ->select(['ocorrencia_id'])
+            ->where(['relatorio_id' => $id])
+            ->all()
+            ->extract('ocorrencia_id')
+            ->toArray();
+
+        // Perguntas (checkbox) que têm ao menos 1 ocorrência marcada
+        $perguntasComOcorrenciaMarcada = [];
+        foreach ($ocorrenciaIdsSalvas as $ocorrenciaId) {
+            $perguntaId = $ocorrenciaParaPergunta[$ocorrenciaId]->pergunta_id ?? null;
+            if ($perguntaId) {
+                $perguntasComOcorrenciaMarcada[$perguntaId] = true;
+            }
+        }
+
+        $contagem = [];
+        foreach ($perguntas as $p) {
+            $r = $respostas[$p->id] ?? null;
+            $temObservacao = $r && $r->observacao !== null && trim($r->observacao) !== '';
+
+            if ($p->tipo === 'radio') {
+                // Respondida somente se selecionou uma opção
+                $respondida = ($r && $r->resposta !== null && $r->resposta !== '');
+            } elseif ($p->tipo === 'checkbox') {
+                // Ao menos 1 ocorrência marcada OU observação preenchida
+                $temOcorrenciaMarcada = isset($perguntasComOcorrenciaMarcada[$p->id]);
+                $respondida = $temOcorrenciaMarcada || $temObservacao;
+            } elseif ($p->tipo === 'texto') {
+                // Observação é a própria resposta
+                $respondida = $temObservacao;
+            } else {
+                // Tipo desconhecido/futuro: fallback seguro, considera resposta OU observação
+                $respondida = ($r && $r->resposta !== null && $r->resposta !== '') || $temObservacao;
+            }
+
+            if ($respondida) {
+                $contagem[$p->dimensao] = ($contagem[$p->dimensao] ?? 0) + 1;
+            }
+        }
+
+        return $contagem; // ex: [1 => 4, 2 => 0, 3 => 2, ...]
+    }
+
+    public function concluirAssinatura($relatorio_id, $setor_id)
+    {
+        $identity = $this->Authentication->getIdentity();
+
+        $relatorio = $this->Relatorios->get($relatorio_id);
+
+        $this->Authorization->authorize($relatorio, 'concluirAssinatura');
+
+        $relatorio->ic_rascunho = 0;
+        $relatorio->id_ass_super = $identity->id;
+
+        if ($this->Relatorios->save($relatorio)) {
+            $this->Flash->success('Termo concluído e assinado com sucesso.');
+        } else {
+            $this->Flash->error('Não foi possível concluir e assinar o termo.');
+        }
+
+        return $this->redirect(['action' => 'dashSupervisor', $setor_id]);
+    }
+
+    public function providencia($escola_id)
+    {
+        $this->Authorization->skipAuthorization();
+        $usuario = $this->Authentication->getIdentity();
+
+        $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
+        $escola = $unid_escolares->get($escola_id);
+
+        if ($usuario->tp_usuarios_id == 2) {
+
+            $providencias = $this->Relatorios->Respostas->find()
+                ->where([
+                    'Respostas.status' => 0,
+                    'Relatorios.unid_escolar_id' => $escola_id,
+                    'Relatorios.usuario_id' => $usuario->id
+                ])
+                ->orderBy(['Relatorios.data' => 'ASC', 'Respostas.pergunta_id' => 'ASC'])
+                ->contain(['Relatorios', 'Perguntas'])
+                ->all();
+        } else {
+            $providencias = $this->Relatorios->Respostas->find()
+                ->where([
+                    'Respostas.status' => 0,
+                    'Relatorios.unid_escolar_id' => $escola_id,
+                    // 'Relatorios.usuario_id' => $usuario->id
+                ])
+                ->orderBy(['Relatorios.data' => 'ASC', 'Respostas.pergunta_id' => 'ASC'])
+                ->contain(['Relatorios', 'Perguntas'])
+                ->all();
+        }
+
+        $pendencias = $providencias;
+
+        $this->set(compact('providencias', 'escola', 'pendencias'));
+    }
+
+    public function salvarProvidencias()
+    {
+        // $this->authorize('update', $providencia);
+
+        $this->Authorization->skipAuthorization();
+        $identity = $this->Authentication->getIdentity();
+
+        if ($this->request->is(['post', 'patch', 'put'])) {
+
+            $ids = array_keys($this->request->getData('status', []));
+
+            if (!empty($ids)) {
+
+                $providencia = $this->Relatorios->Respostas->find()
+                    ->select(['Respostas.id', 'Relatorios.unid_escolar_id'])
+                    ->where([
+                        'Respostas.id IN' => $ids,
+                        // 'Relatorios.unid_escolar_id' => $escola_id,
+                        // 'Relatorios.usuario_id' => $usuario->id
+                    ])
+                    ->contain(['Relatorios', 'Perguntas'])
+                    ->first();
+
+                $escolaId = $providencia->relatorio->unid_escolar_id;
+
+                $this->Relatorios->Respostas
+                    ->updateQuery()
+                    ->set([
+                        'status' => true,
+                        'modified' => new DateTime() // Atualiza manualmente a data da alteração
+                        // 'usuario_id' => $identity->id
+                    ])
+                    ->where([
+                        'id IN' => $ids
+                    ])
+                    ->execute();
+
+                $this->Flash->success('Providencias atualizadas com sucesso.');
+
+                return $this->redirect(['action' => 'providencia', $escolaId]);
+            } else {
+                $this->Flash->error('Selecione pelo menos uma providência.');
+                return $this->redirect($this->referer());
+            }
+        }
+    }
+
+    public function dashSupervisor($id)
+    {
+        $id = 162;
+        $this->Authorization->skipAuthorization();
+        $identity = $this->request->getAttribute('identity');
+        $providencia = $this->fetchTable('Providencias');
+        // $providencia = TableRegistry::getTableLocator()->get('Providencias');
+
+        $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
+
+        $unidades = $this->fetchTable('UsuarioUnidEscolares')
+            ->find()
+            ->select([
+                'UnidEscolares.id',
+                'UnidEscolares.sigla',
+                'UnidEscolares.nm_unid_escolar',
+            ])
+            ->where([
+                'UsuarioUnidEscolares.usuario_id' => $id
+            ])
+            ->contain([
+                'UnidEscolares',
+            ])
+            ->all();
+
+        $ano = date('Y');
+        $escolasIds = $unidades
+            ->map(fn($unidade) => $unidade->unid_escolare->id)
+            ->toList();
+
+        $itens = [];
+
+        $pendenciasPorEscola = [];
+
+        if (!empty($escolasIds)) {
+
+            $pendenciasPorEscola = $providencia->find()
+                ->select([
+                    'unid_escolar_id' => 'Relatorios.unid_escolar_id',
+                    'total' => $providencia->find()->func()->count('Providencias.id'),
+                ])
+                ->innerJoinWith('Relatorios')
+                ->where([
+                    'Providencias.status' => 0,
+                    'Relatorios.unid_escolar_id IN' => $escolasIds,
+                ])
+                ->groupBy('Relatorios.unid_escolar_id')
+                ->enableAutoFields(false)
+                ->all()
+                ->indexBy('unid_escolar_id')
+                ->toArray();
+        }
+
+        if (!empty($escolasIds)) {
+            $itens = $this->Relatorios->find()
+                ->select([
+                    'Relatorios.id',
+                    'Relatorios.termo_id',
+                    'Relatorios.data',
+                    'Relatorios.unid_escolar_id',
+                    'Relatorios.ic_rascunho',
+                    'Relatorios.id_ass_dir',
+                    'Relatorios.id_ass_assis',
+                    'Relatorios.id_ass_sub',
+                ])
+                ->where([
+                    'Relatorios.unid_escolar_id IN' => $escolasIds,
+                    'YEAR(Relatorios.data)' => $ano,
+                    'Relatorios.usuario_id' => $identity->id
+                ])
+                ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC'])
+                ->all();
+        }
+
+        $titulos = [];
+
+        foreach ($unidades as $unidade) {
+
+            $escola = $unidade->unid_escolare;
+
+            $titulo = new \stdClass();
+
+            $titulo->texto =
+                $escola->sigla . ' ' .
+                $escola->nm_unid_escolar;
+
+            $titulo->escola_id = $escola->id;
+
+            $titulo->pendencias = $pendenciasPorEscola[$escola->id]->total ?? 0;
+
+            $titulo->itens = [];
+
+            $titulos[$escola->id] = $titulo;
+        }
+
+        $totalPendencias = array_sum(array_map(fn($p) => $p->total, $pendenciasPorEscola));
+
+        foreach ($itens as $item) {
+
+            $escolaId = $item->unid_escolar_id;
+
+            // Se ainda não existe o título dessa escola
+            if (!isset($titulos[$escolaId])) {
+                continue;
+            }
+
+            $relatorio = new \stdClass();
+
+            $relatorio->id = $item->id;
+            $relatorio->termo_id = $item->termo_id;
+            $relatorio->data = $item->data;
+            $relatorio->pendencias = $item->pendencias;
+
+            // debug($relatorio);
+            // die;
+
+            $relatorio->subtitulo = "Termo ";
+
+            if (
+                $item->ic_rascunho == 1
+            ) {
+                $relatorio->situacao = 3;
+            } elseif (
+                !empty($item->id_ass_dir) &&
+                !empty($item->id_ass_assis) &&
+                !empty($item->id_ass_sub)
+            ) {
+                $relatorio->situacao = 2;
+            } elseif (
+                empty($item->id_ass_dir) ||
+                empty($item->id_ass_assis) ||
+                empty($item->id_ass_sub)
+            ) {
+                $relatorio->situacao = 1;
+            }
+
+            // pr($relatorio->subtitulo);
+
+            $titulos[$escolaId]->itens[] = $relatorio;
+        }
+
+        // Reindexa o array para começar em 0
+        $titulos = array_values($titulos);
+
+
+        $this->set(compact('titulos', 'totalPendencias'));
+
+        // pr($relatorios->toArray());
+        // die;
+    }
+
+    public function dashSupervisorOld($setor_id)
+    {
+        $this->Authorization->skipAuthorization();
+        // $identity = $this->Authentication->getIdentity();
+        $identity = $this->request->getAttribute('identity');
+        $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
+        $unid_escolares_vw = TableRegistry::getTableLocator()->get('UnidEscolaresVw');
+
+        $query = $unid_escolares->find()->where(['setores_id' => $setor_id])->toArray();
+
+        $escolas = $unid_escolares->find('list', keyField: 'id', valueField: 'nm_unid_escolar')->where(['setores_id' => $setor_id, 'ativo is' => null])
+            ->orderBy(['nm_unid_escolar' => 'ASC'])->toArray();
+
+        // debug($escolas);
+        // die;
+
+        $ano = date('Y');
+
+        $escolasIds = array_keys($escolas);
+
+        if ($this->request->is('post')) {
+
+            $escola = $this->request->getData('escola_id');
+            $view = $this->request->getData('view');
+
+            if ($view == 1) {
+                return $this->redirect(['action' => 'add', $escola]);
+            } elseif ($view == 2) {
+                return $this->redirect(['action' => 'dash_escolas', $escola]);
+            }
+        }
+
+        // $relatorios = $this->Relatorios->find()->where(['usuario_id' => $identity->id, 'YEAR(data)' => $ano])->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+        $relatorios = $this->Relatorios->find()->where(['unid_escolar_id IN' => $escolasIds, 'YEAR(data)' => $ano, 'usuario_id' => $identity->id])->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+
+        // debug($relatorios->toArray());
+        // die;
+
+        $this->set(compact('escolas', 'relatorios', 'ano', 'identity'));
+    }
+
+    public function dashSubsecretaria()
+    {
+        $this->Authorization->skipAuthorization();
+
+        $unid_escolares_vw = TableRegistry::getTableLocator()->get('UnidEscolaresVw');
+
+        $usuarios = $this->fetchTable('Usuarios');
+        $supervisoras = $usuarios->find()->where(['tp_usuarios_id' => 2])->contain(['UsuarioUnidEscolares' => ['Setores' => ['UnidEscolares']]])->toArray();
+        // $escolas = $unid_escolares_vw->find('list', keyField: 'id', valueField: 'nm_unid_escolar')->where(['setores_id' => $setor_id])->toArray();
+
+        // debug($supervisoras);
+        // die;
+
+        $this->set(compact('supervisoras'));
+    }
+
+    public function dashSubEscolas($escola_id)
+    {
+
+        $ano = date('Y');
+        $unid_escolares_vw = $this->fetchTable('UnidEscolaresVw');
+
+        $escola = $unid_escolares_vw->find()->where(['id' => $escola_id])->first();
+        if ($this->identity->tp_usuarios_id == 4) {
+            $this->Authorization->skipAuthorization();
+
+            $relatorios = $this->Relatorios->find()->where([
+                'unid_escolar_id' => $escola_id,
+                'YEAR(data)' => $ano,
+                'ic_rascunho' => 0,
+
+            ])->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+
+            $this->set(compact('relatorios'));
+        }
+
+        $this->set(compact('escola'));
+    }
+    public function dashDiretorEscolas($usuario)
+    {
+        $identity = $this->Authentication->getIdentity();
+        $ano = date('Y');
+
+        $unid_escolares_vw = $this->fetchTable('UnidEscolaresVw');
+        $usuario_unid_escolares = $this->fetchTable('UsuarioUnidEscolares');
+        $unid_escolares = $this->fetchTable('UnidEscolares');
+
+        $connection = TableRegistry::getTableLocator()->get('Users', [
+            'connectionName' => 'bdescola'
+        ]);
+
+        $funcionariosTable = TableRegistry::getTableLocator()->get('Funcionarios', [
+            'connectionName' => 'dashescola'
+        ]);
+
+        $dashboardsTable = TableRegistry::getTableLocator()->get('Dashboards', [
+            'connectionName' => 'dashescola'
+        ]);
+
+        $escolasTable = TableRegistry::getTableLocator()->get('DashEscolas');
+
+        $funcionario = $funcionariosTable->find()
+            ->select(['id_funcionario'])
+            ->where(['rf' => $identity->cd_rf])
+            ->first();
+
+        $providencias = $this->fetchTable('Providencias');
+
+        if (!$funcionario) {
+            // return [];
+            $this->Authorization->skipAuthorization();
+
+            $this->Flash->error('Usuário não localizado!');
+            return $this->redirect($this->referer());
+        } else {
+            $dashboard = $dashboardsTable->find()->where(['funcionario_id' => $funcionario->id_funcionario])->all();
+            $escolaIds = [];
+            foreach ($dashboard as $dash) {
+                $escolaIds[] = $dash->escola_id;
+            }
+
+            $escolas = $escolasTable->find()
+                ->select([
+                    'id_escola',
+                    'nome'
+                ])
+                ->where(['id_escola IN' => $escolaIds])->all();
+
+            $nomeEscolas = $escolas->extract('nome')->toList();
+
+            $UnidEscolares = $this->fetchTable('UnidEscolares');
+
+            $query = $UnidEscolares->find();
+
+            $query->where(function ($exp) use ($nomeEscolas) {
+
+                $orConditions = [];
+
+                foreach ($nomeEscolas as $nome) {
+
+                    $nomeTratado = preg_replace('/^E\.M\.\s*/', '', $nome);
+
+                    $orConditions[] = [
+                        "MATCH (nm_unid_escolar) AGAINST ('$nomeTratado') "
+                    ];
+                }
+
+                return $exp->or($orConditions);
+            });
+
+            $query->limit(1); // Correção por Anderson
+            $escolas_diretor = $query->all();
+
+            $idsEscolas = [];
+
+            foreach ($escolas_diretor as $escola) {
+                $idsEscolas[] = $escola->id;
+            }
+
+            if ($identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5) {
+
+                $escolas = $usuario_unid_escolares->find('list', keyField: 'unid_escolare.id', valueField: 'unid_escolare.nm_unid_escolar')
+                    ->where(['usuario_id' => $usuario])
+                    ->contain(['UnidEscolares'])->orderBy(['prioridade = 1' => 'DESC'])
+                    ->toArray();
+            } elseif ($identity->tp_usuarios_id == 4) {
+                $escolas = $usuario_unid_escolares->find('list', keyField: 'unid_escolare.id', valueField: 'unid_escolare.nm_unid_escolar')
+                    ->where(['unid_escolares_id' => $usuario])
+                    ->contain(['UnidEscolares'])->orderBy(['prioridade = 1' => 'DESC'])
+                    ->toArray();
+            }
+        }
+
+        if (count($escolas) == 1) {
+            if (count($escolas) === 1) {
+
+                $id = array_keys($escolas);
+                // $escola = $unid_escolares->get($escola->id);
+                if (isset($escola)) {
+                    $escola = $unid_escolares->get($escola->id);
+                } else {
+                    $escola = $unid_escolares->get($escolaIds);
+                }
+            }
+
+            $this->set('escola', $escola);
+
+            $id = array_keys($escolas);
+
+            if ($identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5) {
+
+                $relatorios = $this->Relatorios->find()->where(['unid_escolar_id IN' => $idsEscolas, 'YEAR(data)' => $ano])
+                    ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+            } elseif ($identity->tp_usuarios_id == 4) {
+                $relatorios = $this->Relatorios->find()->where(['unid_escolar_id IN' => $idsEscolas, 'YEAR(data)' => $ano])
+                    ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+            }
+        } else {
+            $relatorios = $this->Relatorios->find()->where(['unid_escolar_id IN' => $idsEscolas, 'YEAR(data)' => $ano])
+                ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+        }
+
+        $this->set(compact('relatorios'));
+
+        if ($this->request->is('post')) {
+
+            $escola = $this->request->getData('escola_id');
+
+            $relatorios = $this->Relatorios->find()
+                ->where(['unid_escolar_id IN' => $escola, 'YEAR(data)' => $ano, 'ic_rascunho' => 0])
+                ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+
+            $this->set(compact('relatorios'));
+        }
+
+        $this->Authorization->skipAuthorization();
+
+        if ($identity->tp_usuarios_id == 2) {
+            $pendencias = $this->Relatorios->Respostas->find()
+                ->where([
+                    'Respostas.status' => 0,
+                    'Relatorios.unid_escolar_id IN' => $idsEscolas,
+                    'Relatorios.usuario_id' => $identity->id
+                ])
+                ->contain(['Relatorios', 'Perguntas'])
+                ->all();
+        } else {
+            $pendencias = $this->Relatorios->Respostas->find()
+                ->where([
+                    'Respostas.status' => 0,
+                    'Relatorios.unid_escolar_id IN' => $idsEscolas,
+                    // 'Relatorios.usuario_id' => $identity->id
+                ])
+                ->contain(['Relatorios', 'Perguntas'])
+                ->all();
+        }
+
+        $this->set(compact(
+            'escolas',
+            'ano',
+            'pendencias'
+            /** 'cont' ,'rel_final' */
+        ));
+    }
+
+    public function dashRelatoriosAnteriores($ano, $escola_id)
+    {
+        $this->Authorization->skipAuthorization();
+        $relatorio_anteriores = $this->fetchTable('RelatoriosAnt');
+        $unid_escolares = $this->fetchTable('UnidEscolares');
+
+        $relatorio_identificados = $relatorio_anteriores->find()->where(['dt_relatorio like' => '%' . $ano . '%', 'cd_unidade' => $escola_id])->orderByDesc('cd_termo');
+        $escola = $unid_escolares->get($escola_id);
+
+        $this->set(compact('relatorio_identificados', 'escola'));
+    }
+
+    public function dashEscolas($escola_id)
+    {
+        $this->Authorization->skipAuthorization();
+
+        $escola_id = $escola_id + 0;
+        $user = $this->getRequest()->getAttribute('identity');
+
+        $unid_escolares = $this->fetchTable('UnidEscolares');
+        $providencias = $this->fetchTable('Providencias');
+
+        $escola = $unid_escolares->get($escola_id);
+
+        $escolaName = $escola;
+
+        $ano = date('Y');
+        $relatorios_assin = $this->Relatorios->find()->where([
+            'usuario_id' => $user->id,
+            'YEAR(data)' => $ano,
+            'unid_escolar_id' => $escola_id,
+            'ic_rascunho' => 0,
+            'OR' => [
+                [
+                    'id_ass_super is not' => null,
+                    'id_ass_dir is not' => null
+                ],
+                [
+                    'ic_cancelado' => 1
+                ]
+            ]
+        ])->contain(['UnidEscolares'])
+            ->toArray();
+
+        /** Pensar melhor nessa busca  */
+
+        $condicaoBase = [
+            'unid_escolar_id' => $escola_id,
+            'usuario_id' => $user->id,
+            'YEAR(data)' => $ano,
+            'ic_rascunho' => 0,
+        ];
+
+        if ($user->tp_usuarios_id == 1 || $user->tp_usuarios_id == 5) {
+
+            $relatorios_s_assin = $this->Relatorios->find()->where(array_merge($condicaoBase, ['id_ass_dir is' => null]))
+                ->contain(['UnidEscolares'])
+                ->orderByDesc('Relatorios.id')
+                ->toArray();
+        } elseif ($user->tp_usuarios_id == 4) {
+            $relatorios_s_assin = $this->Relatorios->find()->where(array_merge(
+                $condicaoBase,
+                ['id_ass_sub is' => null]
+            ))
+                ->contain(['UnidEscolares'])->orderByDesc('Relatorios.id')
+                ->toArray();
+        } else {
+            $relatorios_s_assin = $this->Relatorios->find()->where(array_merge($condicaoBase, [
+                'OR' => [
+                    [
+                        'id_ass_dir is' => null,
+                        'id_ass_sub is' => null
+                    ]
+                ]
+            ]))
+                ->contain(['UnidEscolares'])
+                ->orderByDesc('Relatorios.id')
+                ->toArray();
+        }
+        if ($user->tp_usuarios_id == 2) {
+
+            $relatorio_rascunho = $this->Relatorios->find()->where([
+                'usuario_id' => $user->id,
+                'unid_escolar_id' => $escola_id,
+                'YEAR(data)' => $ano,
+                'ic_rascunho' => 1
+            ])->contain(['UnidEscolares'])
+                ->toArray();
+
+            if (empty($relatorio_rascunho)) {
+                $relatorio_rascunho = 'Sem rascunho!';
+            }
+            $this->set(compact('relatorio_rascunho'));
+        }
+
+        $relatorios = $this->Relatorios->find()
+            ->where(['unid_escolar_id' => $escola_id, 'usuario_id' => $user->id, 'YEAR(data)' => $ano])
+            ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC'])
+            ->toArray();
+
+        if (empty($relatorios_assin)) {
+            $relatorios_assin = 'Sem relatórios!';
+        }
+
+        if (empty($relatorios_s_assin)) {
+            $relatorios_s_assin = 'Sem relatórios!';
+        }
+        if (empty($relatorios)) {
+            $relatorios = 'Sem relatórios!';
+        }
+
+        $providencias = $this->Relatorios->Respostas->find()
+            ->where([
+                'Respostas.status' => 0,
+                'Relatorios.unid_escolar_id' => $escola_id,
+                'Relatorios.usuario_id' => $user->id
+            ])
+            ->contain(['Relatorios', 'Perguntas'])
+            ->all();
+
+        $this->set('pendencias', $providencias);
+        $this->set(compact('escola', 'ano', 'relatorios', 'relatorios_assin', 'relatorios_s_assin', 'escolaName'));
+    }
+
+    public function dashDiretor($id = null)
+    {
+        $identity = $this->Authentication->getIdentity();
+
+        $this->Authorization->skipAuthorization();
+
+        $connection = TableRegistry::getTableLocator()->get('Users', [
+            'connectionName' => 'bdescola'
+        ]);
+
+
+        $funcionariosTable = TableRegistry::getTableLocator()->get('Funcionarios', [
+            'connectionName' => 'dashescola'
+        ]);
+
+        $dashboardsTable = TableRegistry::getTableLocator()->get('Dashboards', [
+            'connectionName' => 'dashescola'
+        ]);
+
+        $escolasTable = TableRegistry::getTableLocator()->get('DashEscolas');
+
+        $funcionario = $funcionariosTable->find()
+            ->select(['id_funcionario'])
+            ->where(['rf' => $identity->cd_rf])
+            ->first();
+
+        if (!$funcionario) {
+            return [];
+        }
+
+        $escolaIds = $dashboardsTable->find()
+            ->select(['escola_id'])
+            ->where([
+                'funcionario_id' => $funcionario->id_funcionario
+            ])
+            ->all()->extract('escola_id')->toList();
+        // ->toArray();
+
+        if (empty($escolaIds)) {
+            return [];
+        }
+
+        $escolas = $escolasTable->find()->select([
+            'id_escola',
+            'nome'
+        ])
+            ->where([
+                'id_escola IN' => $escolaIds
+            ])
+            ->all();
+
+        $nomeEscolas = $escolas->extract('nome')->toList();
+
+        $UnidEscolares = $this->fetchTable('UnidEscolares');
+
+        $query = $UnidEscolares->find();
+
+        $query->where(function ($exp) use ($nomeEscolas) {
+
+            $orConditions = [];
+
+            foreach ($nomeEscolas as $nome) {
+
+                $nomeTratado = preg_replace('/^E\.M\.\s*/', '', $nome);
+
+                $orConditions[] = [
+                    "MATCH (nm_unid_escolar) AGAINST ('$nomeTratado') "
+                ];
+            }
+
+            return $exp->or($orConditions);
+        });
+
+        $escolas_diretor = $query->all();
+
+        $idsEscolas = [];
+
+        foreach ($escolas_diretor as $escola) {
+            $idsEscolas[] = $escola->id;
+        }
+
+        $ano = date('Y');
+
+        $relatorios = $this->Relatorios->find()->where(['unid_escolar_id IN' => $idsEscolas, 'YEAR(data)' => $ano])
+            ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC']);
+
+        $usuario = $this->fetchTable('Usuarios')
+            ->get($id, contain: 'Escolas.UnidEscolares');
+
+        $this->set(compact('usuario', 'ano', 'relatorios'));
+    }
+
+    public function edit($id)
+    {
+        $relatorio = $this->Relatorios->get($id, contain: ['UnidEscolares', 'OcorrenciaRelatorios']);
+
+        $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
+
+        $query = $unid_escolares->find();
+        $query->select(['id', 'id_escola', 'sigla', 'nm_unid_escolar', 'nome_completo' => $query->func()->concat(['sigla' => 'identifier', ' ', 'nm_unid_escolar' => 'identifier'])]);
+        $escola = $query->where(['id' => $relatorio->unid_escolar_id])->first();
+
+        $this->Authorization->authorize($relatorio, 'edit');
+        $usuario = $this->Authentication->getIdentity();
+
+        $funcoes = TableRegistry::getTableLocator()->get('Funcoes');
+        $ocorrencia = $this->fetchTable('Ocorrencias');
+
+        $list_funcao = $funcoes->find('list', keyField: 'id', valueField: 'nm_funcao')->toArray();
+
+        $usuarios = $this->fetchTable('Usuarios');
+        $usuario_unid_escolares = $this->fetchTable('UsuarioUnidEscolares');
+
+        $ocorrenciasRelacionadasIds = [];
+
+        if (!empty($relatorio->ocorrencia_relatorios)) {
+            $ocorrenciasRelacionadasIds = collection($relatorio->ocorrencia_relatorios)
+                ->extract('ocorrencia_id')
+                ->toArray();
+        }
+
+        if ($this->request->is(['post', 'put'])) {
+
+            $relatorio = $this->Relatorios->patchEntity($relatorio, $this->request->getData(), [
+                'associated' => ['OcorrenciaRelatorios']
+            ]);
+
+            $ocorrenciasManutIds = $this->request->getData('list_manutencao');
+            $ocorrenciasLegIds = $this->request->getData('list_legislacao');
+
+            $this->Relatorios->OcorrenciaRelatorios->deleteAll(['relatorio_id' => $id]);
+
+            if (!empty($ocorrenciasManutIds)) {
+
+                foreach ($ocorrenciasManutIds as $i => $ocorrenciasManutId) {
+
+                    if ($ocorrenciasManutId != 0) {
+                        $entity = $this->Relatorios->OcorrenciaRelatorios->newEmptyEntity();
+
+                        $entity->relatorio_id = $id;
+                        $entity->ocorrencia_id = $ocorrenciasManutId;
+
+                        $this->Relatorios->OcorrenciaRelatorios->save($entity);
+                    }
+                }
+            }
+
+            if (!empty($ocorrenciasLegIds)) {
+
+                foreach ($ocorrenciasLegIds as $i => $ocorrenciasLegId) {
+                    if ($ocorrenciasLegId != 0) {
+                        $entity = $this->Relatorios->OcorrenciaRelatorios->newEmptyEntity();
+                        $entity->relatorio_id = $id;
+                        $entity->ocorrencia_id = $ocorrenciasLegId;
+
+                        $this->Relatorios->OcorrenciaRelatorios->save($entity);
+                    }
+                }
+            }
+
+            foreach ($relatorio->ocorrencia_relatorios as $i => $ocorrencia_relatorio) :
+
+                if ($ocorrencia_relatorio->ocorrencia_id === null) {
+                    unset($relatorio->ocorrencia_relatorios[$i]);
+                }
+
+            endforeach;
+
+            $rascunho = $this->request->getData('ic_rascunho');
+
+            if ($rascunho == '0') {
+                $relatorio->id_ass_super = $relatorio->usuario_id;
+            }
+
+            if ($this->Relatorios->save($relatorio)) {
+
+                $this->Flash->success('Relatório salvo');
+
+                $setor_usuario = $usuario_unid_escolares->find()->where(['usuario_id' => $usuario->id])->first();
+
+                return $this->redirect(['action' => 'dashEscolas', $relatorio->unid_escolar_id]);
+            }
+        }
+
+        $list_manutencao = $ocorrencia->find()->where(['categorias_id' => 3])->toArray();
+        $list_legislacao = $ocorrencia->find()->where(['categorias_id' => 4])->toArray();
+
+        $query = $usuarios->find('list', keyField: 'id', valueField: 'nm_usuario')->contain('UsuarioUnidEscolares')->where(['UsuarioUnidEscolares.unid_escolares_id' => $relatorio->unid_escolar_id]);
+
+
+        $escola_user = $this->fetchTable('Users');
+
+        $busca_escola_users = $escola_user->find()->where(['escola_id' => $escola->id_escola])->toArray();
+
+        if (count($busca_escola_users) > 0) {
+
+            foreach ($busca_escola_users as $escola_user):
+                $escola_usuarios[] = str_replace(array(".", ""), "", $escola_user->rf);
+            endforeach;
+
+            if (count($escola_usuarios) > 0) {
+                $escola_users = $usuarios->find('list', keyField: 'id', valueField: 'nm_usuario')->where(['cd_rf IN' => $escola_usuarios])->toArray();
+
+                if (count($escola_users) == 0) {
+                    /** Aqui Salva os usuários encontrados no Banco Escola na Tabela Usuarios do bd_termo 
+                     * 
+                     * E Carrega a variável $escola_users com esse cadastro recém efetuado.
+                     * 
+                     */
+                    $this->Flash->error("Não tem Equipe de Direção cadastrada no Sistema Termos. Aguardando para ver como será feito.");
+                }
+
+                $this->set(compact('escola_users'));
+            }
+        } else {
+            $this->Flash->error("Não tem Equipe de Direção cadastrada no Sistema Escolas. ");
+        }
+
+
+        $this->set(compact('relatorio', 'list_funcao', 'escola_users', 'escola', 'list_manutencao', 'list_legislacao', 'ocorrenciasRelacionadasIds'));
+    }
+
+    public function sign($id)
+    {
+        $this->viewBuilder()->setLayout('print');
+
+        $identity = $this->Authentication->getIdentity();
+
+        $relatorio = $this->Relatorios->get($id, contain: [
+            'UnidEscolares',
+            'Respostas',
+            'Funcoes',
+            'OcorrenciaRelatorios' => ['Ocorrencias'],
+            'Usuarios' => ['UsuarioUnidEscolares']
+        ]);
+
+        $respostas = $this->fetchTable('Respostas')->find()
+            ->where(['relatorio_id' => $id])
+            ->all();
+
+        /** Aqui colocar vários if verificando se no relatório tem o
+         *  ID do Supervisor,
+         *  do Diretor e
+         *  do SubSecretario  */
+
+
+        if ($relatorio->id_ass_super) {
+            $supervisor = $this->Relatorios->Usuarios->find()->where(['id' => $relatorio->id_ass_super])->first();
+            $this->set(compact('supervisor'));
+        }
+
+        if ($relatorio->id_ass_dir) {
+            $diretor = $this->Relatorios->Usuarios->find()->where(['id' => $relatorio->id_ass_dir])->first();
+            $this->set(compact('diretor'));
+        }
+
+        if ($relatorio->id_ass_assis) {
+            $assistente = $this->Relatorios->Usuarios->find()->where(['id' => $relatorio->id_ass_assis])->first();
+            $this->set(compact('assistente'));
+        }
+
+        if ($relatorio->id_ass_sub) {
+            $subsecretario = $this->Relatorios->Usuarios->find()->where(['id' => $relatorio->id_ass_sub])->first();
+            $this->set(compact('subsecretario'));
+        }
+
+        try {
+            $this->Authorization->authorize($relatorio);
+        } catch (ForbiddenException $e) {
+            $this->Flash->error('Você não possui permissão para acessar este documento.');
+
+            return $this->redirect(['action' => 'dash_diretor_escolas', $identity->id]);
+        }
+
+        $ocorrenciasRelacionadasIds = [];
+
+        if (!empty($relatorio->ocorrencia_relatorios)) {
+            $ocorrenciasRelacionadasIds = collection($relatorio->ocorrencia_relatorios)
+                ->extract('ocorrencia_id')
+                ->toArray();
+        }
+
+        $funcoes = $this->fetchTable('Funcoes');
+        $perguntas = $this->fetchTable('Perguntas')->find()->orderBy(['codigo' => 'ASC'])->all();
+
+        $respostasMap = [];
+        foreach ($relatorio->respostas as $resposta) {
+            $respostasMap[$resposta->pergunta_id] = $resposta;
+        }
+
+        $list_funcao = $funcoes->find('list', keyField: 'id', valueField: 'nm_funcao')->toArray();
+        $list_manutencao = $this->Relatorios->OcorrenciaRelatorios->Ocorrencias->find()->where(['categorias_id' => 3])->toArray();
+        $list_legislacao = $this->Relatorios->OcorrenciaRelatorios->Ocorrencias->find()->where(['categorias_id' => 4])->toArray();
+
+        $this->set(compact('relatorio', 'perguntas', 'respostasMap', 'list_funcao', 'list_manutencao', 'list_legislacao', 'ocorrenciasRelacionadasIds'));
+    }
+
+    public function cancelar()
+    {
+        $this->request->allowMethod(['post']);
+
+        $id = $this->request->getData('id_relatorio');
+
+        $sucesso = false;
+        $mensagem = 'Relatório não encontrado.';
+
+        if ($id) {
+            $relatorio = $this->Relatorios->get($id);
+
+            $this->Authorization->authorize($relatorio, 'cancelar');
+
+            $relatorio->ic_cancelado = 1;
+
+            if ($this->Relatorios->save($relatorio)) {
+                $sucesso = true;
+                $mensagem = 'O relatório foi tornado sem efeito!';
+            } else {
+                $mensagem = 'Não foi possível atualizar o status no banco de dados.';
+            }
+
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'sucesso' => $sucesso,
+                    'mensagem' => $mensagem
+                ]));
+        }
+    }
+
+    public function undersign($relatorio, $usuario)
+    {
+        $relatorio = $this->Relatorios->get($relatorio);
+
+        $this->Authorization->authorize($relatorio, 'undersign');
+        $identity = $this->Authentication->getIdentity();
+
+        if ($this->request->is(['get', 'post', 'put'])) {
+
+            $usuarios = $this->fetchTable('Usuarios');
+
+            $resultado = $usuarios->find('all')->where(['id' => $usuario])->all();
+
+            $arquivo = $resultado->last();
+
+            if (!file_exists(WWW_ROOT . 'files' . DS . $arquivo->cd_assinatura)) {
+                $this->Flash->error("Não Tem Arquivo de Assinatura em Nossos Arquivos. Deve solicitar atualização do seu cadastro. ");
+                return $this->redirect($this->referer());
+            } else {
+
+                if ($identity->tp_usuarios_id == 4) {
+                    $relatorio->id_ass_sub = $usuario;
+                } elseif ($identity->tp_usuarios_id == 5) {
+                    $relatorio->id_ass_assis = $usuario;
+                } else {
+                    $relatorio->id_ass_dir = $usuario;
+                }
+
+                if ($this->Relatorios->save($relatorio)) {
+
+                    if ($identity->tp_usuarios_id == 4) {
+                        return $this->redirect(['action' => 'dash_sub_escolas', $relatorio->unid_escolar_id]);
+                    }
+                    return $this->redirect(['action' => 'dash_diretor_escolas', $usuario]);
+                }
+                $this->Flash->error("Não foi possivel Assinar.");
+            }
+        }
+
+        $this->disableAutoRender();
+
+        $this->set(compact('relatorio'));
+    }
+
+    public function relatorioPdf($id)
+    {
+        $this->Authorization->skipAuthorization();
+
+        $this->viewBuilder()->setLayout('print');
+
+        $relatorio_anteriores = $this->fetchTable('RelatoriosAnt');
+        $unid_escolares = $this->fetchTable('UnidEscolares');
+
+        $relatorio = $relatorio_anteriores->find()->where(['RelatoriosAnt.id' => $id])->contain('UnidEscolares')->first();
+
+        $usuarios = $this->fetchTable('Usuarios');
+
+        if ($relatorio->cd_assinatura_supervisor != '') {
+
+            $supervisor = explode(".", $relatorio->cd_assinatura_supervisor);
+
+            $nm_supervisor = $usuarios->find()->select(['nm_usuario'])->where(['cd_rf' => $supervisor[0]])->first();
+
+            $this->set(compact('nm_supervisor'));
+        }
+        if ($relatorio->cd_assinatura_diretor != '') {
+
+            $diretor = explode(".", $relatorio->cd_assinatura_diretor);
+            $nm_diretor = $usuarios->find()->select(['nm_usuario'])->where(['cd_rf' => $diretor[0]])->first();
+
+            $this->set(compact('nm_diretor'));
+        }
+
+        if ($relatorio->cd_assinatura_admin != '') {
+
+            $admin = explode(".", $relatorio->cd_assinatura_admin);
+            $nm_admin = $usuarios->find()->select(['nm_usuario'])->where(['cd_rf' => $admin[0]])->first();
+
+            $this->set(compact('nm_admin'));
+        }
+
+        $this->set(compact('relatorio'));
+    }
+}
