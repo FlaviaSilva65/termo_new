@@ -13,7 +13,7 @@ class DashboardsTable extends Table
     {
         parent::initialize($config);
         $this->setConnection(ConnectionManager::get('dashescola'));
-        $this->setPrimaryKey('funcionario_id');
+        // $this->setPrimaryKey('funcionario_id');
 
 
         //** VER a associação  */

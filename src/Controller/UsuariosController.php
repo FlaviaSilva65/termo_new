@@ -509,6 +509,9 @@ class UsuariosController extends AppController
 
                 $tpUsuarioId = $identity->tp_usuarios_id;
 
+                // debug($identity);
+                // die;
+
                 if ($tpUsuarioId == 2) {
                     $setor_supervisor = $this->fetchTable('SetorSupervisores');
                     $setores = $setor_supervisor->find()->where(['usuario_id' => $identity->id])->all();

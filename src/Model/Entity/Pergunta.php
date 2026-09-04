@@ -38,6 +38,7 @@ class Pergunta extends Entity
         'tipo' => true,
         'opcoes' => true,
         'categoria_id' => true,
+        'importancia' => true,
         'created' => true,
         'modified' => true,
         'categoria' => true,

@@ -37,7 +37,7 @@
             </div>
             <div class="col-12 d-flex justify-content-center mt-5">
                 <div>
-                    <button class="btn btn-verdeM rounded-5 text-white px-5">ENTRAR</button>
+                    <button class="btn btn-success rounded-5 text-white px-5">ENTRAR</button>
                 </div>
             </div>
             <?= $this->Form->end() ?>

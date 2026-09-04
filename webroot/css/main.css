@@ -327,9 +327,19 @@ label { margin-top: 0.5em; }
     transition: all .2s ease;
     font-size: 0.8rem;
 }
+
+/* Branco */
+.importanciaCor0 {
+    border-color: white !important;
+    background-color: white;
+}
+.importanciaCor4 {
+    border-color: #44a9fd !important;
+    background-color: var(--bs-info-bg-subtle);
+}
 /* VERDE */
-.resposta-radio label.resposta-verde {
-    border-color: #198754;
+.resposta-radio label.resposta-verde, .importanciaCor1 {
+    border-color: #198754 !important;
     background-color: #e8f7ef;
     color: #198754;
 }
@@ -339,8 +349,8 @@ label { margin-top: 0.5em; }
 }
 
 /* VERMELHO */
-.resposta-radio label.resposta-vermelho {
-    border-color: #dc3545;
+.resposta-radio label.resposta-vermelho, .importanciaCor2 {
+    border-color: #dc3545 !important;
     background-color: #fff0f1;
     color: #dc3545;
 }
@@ -350,8 +360,8 @@ label { margin-top: 0.5em; }
 }
 
 /* AMARELO */
-.resposta-radio label.resposta-amarelo {
-    border-color: #ffc107;
+.resposta-radio label.resposta-amarelo, .importanciaCor3 {
+    border-color: #ffc107 !important;
     background-color: #fff8df;
     color: #856404;
 }
@@ -362,7 +372,7 @@ label { margin-top: 0.5em; }
 
 /* LARANJA */
 .resposta-radio label.resposta-laranja {
-    border-color: #FD5306;
+    border-color: #FD5306 !important;
     background-color: #ffe8de;
     color: #742400;
 }
@@ -373,7 +383,7 @@ label { margin-top: 0.5em; }
 
 /* Azul */
 .resposta-radio label.resposta-azul {
-    border-color: #0013c8;
+    border-color: #0013c8 !important;
     background-color: #cff8ff;
     color: #020C6D;
 }
@@ -465,6 +475,42 @@ label { margin-top: 0.5em; }
     border-radius: var(--bs-border-radius-pill);
     padding: 0.1rem 0.5rem 0.08rem 0;
     cursor : default;
+}
+
+/* ------------------------- Seções_Termo  --------------------------*/
+.progress-ring{ position:relative; display:inline-block; }
+.progress-ring svg{ display:block; }
+.ring-text{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:.95rem;
+    font-weight:600;
+    line-height:1;
+    color:#555;
+    pointer-events:none;
+}
+.btn-hover{background-color:white;}
+.btn-hover:hover{background-color:#E8F7FC;}
+.barra-hover{ height:3.5rem; width:.3rem; }
+.btn-hover:hover .barra-hover{background-color:#028DCF;}
+
+.btn-s-pill, .btn-e-pill{ border-radius: var(--bs-border-radius-pill) !important; }
+.btn-s-pill{ padding: 0.25rem 0.6rem 0.25rem 0; }
+.btn-e-pill{ padding: 0.25rem 0 0.25rem 0.6rem; }
+.btn-s-pill i{
+    border-bottom-left-radius: var(--bs-border-radius-pill) !important;
+    border-top-left-radius: var(--bs-border-radius-pill) !important;
+    background-color: rgba(0, 0, 0, 0.4);
+    padding: 0.3rem .5rem .45rem .8rem;
+}
+.btn-e-pill i{
+    border-bottom-right-radius: var(--bs-border-radius-pill) !important;
+    border-top-right-radius: var(--bs-border-radius-pill) !important;
+    background-color: rgba(0, 0, 0, 0.4);
+    padding: 0.3rem .8rem .45rem .5rem;
 }
 
 /* ----------------------- Media Screen ------------------------ */

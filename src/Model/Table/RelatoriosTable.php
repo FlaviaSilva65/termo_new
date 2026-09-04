@@ -109,7 +109,7 @@ class RelatoriosTable extends Table
         $validator
             ->date('data')
             ->requirePresence('data', 'create')
-            ->notEmptyDate('data');
+            ->allowEmptyString('data');
 
         $validator
             ->notEmptyString('ic_acompanhado', 'Por favor, selecione sim ou não.');
@@ -216,16 +216,32 @@ class RelatoriosTable extends Table
             ->allowEmptyString('id_ass_super');
 
         $validator
+            ->date('data_ass_super')
+            ->allowEmptyString('data_ass_super');
+
+        $validator
             ->integer('id_ass_dir')
             ->allowEmptyString('id_ass_dir');
+
+        $validator
+            ->date('data_ass_dir')
+            ->allowEmptyString('data_ass_dir');
 
         $validator
             ->integer('id_ass_sub')
             ->allowEmptyString('id_ass_sub');
 
         $validator
+            ->date('data_ass_sub')
+            ->allowEmptyString('data_ass_sub');
+
+        $validator
             ->integer('id_ass_assis')
             ->allowEmptyString('id_ass_assis');
+
+        $validator
+            ->date('data_ass_assis')
+            ->allowEmptyString('data_ass_assis');
 
         return $validator;
     }

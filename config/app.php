@@ -347,10 +347,10 @@ return [
             'className' => Connection::class,
             'driver' => Mysql::class,
             'persistent' => false,
-            // 'host' => '192.168.0.67',
+            'host' => '192.168.0.67', // Enquanto o Sistema estiver no Servidor de Teste ou Localhost
             'username' => 'seducapp',
             'password' => '53duc2024!APPPROD',
-            'database' => 'dashboard_escolar',
+            'database' => 'gestores',
             'encoding' => 'utf8',
         ],
 

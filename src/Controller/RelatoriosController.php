@@ -32,17 +32,48 @@ class RelatoriosController extends AppController
 
         $queryPerguntas = $this->fetchTable('Perguntas');
         $queryOcorrencias = $this->fetchTable('Ocorrencias');
-        $escola = $this->fetchTable('UnidEscolares');
+        $UnidEscolares = $this->fetchTable('UnidEscolares');
+        $Usuarios = $this->fetchTable('Usuarios');
+
+        $Escolas = $this->fetchTable('Escolas');
+        $dashboards = $this->fetchTable('Dashboards'); // Acessando a tabela Dashboards com a DashboardsTable
+        $funcionarios = $this->fetchTable('Funcionarios'); // Acessando a tabela Funcionarios com FuncionariosTable
+
         $Respostas = $this->fetchTable('Respostas');
         $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
+        $Providencia = $this->fetchTable('Providencias');
 
         // \Cake\Log\Log::debug('X-Requested-With: ' . $this->request->getHeaderLine('X-Requested-With'));
         // \Cake\Log\Log::debug('is ajax: ' . var_export($this->request->is('ajax'), true));
 
-        $escolaName = $escola->find()
+        $escolaName = $UnidEscolares->find()
             ->select(['sigla', 'nm_unid_escolar'])
             ->where(['id' => $escola_id])
             ->first();
+
+        // Aqui vem os dados do Banco ESCOLAS  
+        $dados_escolas = $Escolas->find()->where(['nome LIKE' => '%' .  $escolaName->nm_unid_escolar . '%'])->first();
+        $usuario_dashboards = $dashboards->find()->where(['escola_id' => $dados_escolas->id_escola])->all();
+
+        $funcionario_ids = [];
+        foreach ($usuario_dashboards as $usuario_dashboard):
+            $funcionario_ids[] = $usuario_dashboard->funcionario_id;
+        endforeach;
+
+        $func_dashboard = $funcionarios->find()->where(['id_funcionario IN' => $funcionario_ids, 'funcao IN' => [2, 3]])->all();
+
+        $rf_list = [];
+        foreach ($func_dashboard as $funcionario):
+            $rf_list[] = $funcionario->rf;
+        endforeach;
+
+        $gestores = $Usuarios->find()
+            ->where(['cd_rf IN' => $rf_list])
+            ->all();
+
+        $usuarios_lista = collection($gestores)
+            ->combine('id', 'nm_usuario') // ajuste os nomes dos campos conforme sua tabela
+            ->toArray();
 
         $relatorio = $this->Relatorios->newEmptyEntity();
 
@@ -68,11 +99,6 @@ class RelatoriosController extends AppController
             $ultimo_relatorio = $relatorio_ano->last();
 
             $termo_id = $ultimo_relatorio ? $ultimo_relatorio->termo_id + 1 : 1;
-            // if ($ultimo_relatorio) {
-            //     $termo_id = $ultimo_relatorio->termo_id + 1;
-            // } else {
-            //     $termo_id = 1;
-            // }
 
             $relatorio = $this->Relatorios->newEntity([
                 'termo_id' => $termo_id,
@@ -82,10 +108,7 @@ class RelatoriosController extends AppController
                 'ic_rascunho' => 1, // 1 = rascunho, 0 = finalizado
             ]);
 
-            // debug($relatorio);
-            // die;
             $this->Relatorios->save($relatorio);
-            // $id = $relatorio->id;
             return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorio->id]);
         }
 
@@ -97,7 +120,17 @@ class RelatoriosController extends AppController
         if ($this->request->is(['post', 'put'])) {
             $data = $this->request->getData();
 
+            \Cake\Log\Log::debug('DADOS CoMPLETOS: ' . json_encode($data));
+
+            if (!empty($data['relatorio'])) {
+                $relatorio = $this->Relatorios->patchEntity($relatorio, $data['relatorio']);
+                if (!$this->Relatorios->save($relatorio)) {
+                    \Cake\Log\Log::debug('Erro ao salvar relatorio: ' . json_encode($relatorio->getErrors()));
+                }
+            }
+
             foreach ($data['respostas'] ?? [] as $perguntaId => $resposta) {
+
                 $existente = $Respostas->find()
                     ->where(['relatorio_id' => $id, 'pergunta_id' => $perguntaId])
                     ->first();
@@ -111,10 +144,32 @@ class RelatoriosController extends AppController
                 $entity->observacao = $resposta['observacao'] ?? null;
                 $entity->status = isset($resposta['status']) ? (int)$resposta['status'] : 1;
 
-                // debug($entity);
-                // die;
-
                 $Respostas->save($entity);
+
+                if ($entity->status == 0) {
+                    $verExistencia = $Providencia->find()
+                        ->where(['relatorio_id' => $id, 'pergunta_id' => $perguntaId])
+                        ->first();
+
+                    $providenciaEntity = $verExistencia ?: $Providencia->newEntity([
+                        'relatorio_id' => $id,
+                        'unid_escolar_id' => $escola_id,
+                        'pergunta_id' => $perguntaId,
+                        'usuario_id' => $identity->id
+
+                    ]);
+                    $providenciaEntity->status = 0;
+                    $providenciaEntity->resposta_id = $entity->id;
+                    $providenciaEntity->descricao = $resposta['observacao'] ?? null;
+
+                    $Providencia->save($providenciaEntity);
+                } else {
+                    // Se existir uma providência aberta para essa pergunta, marca como resolvida
+                    $Providencia->updateAll(
+                        ['status' => 1],
+                        ['relatorio_id' => $id, 'pergunta_id' => $perguntaId, 'status' => 0]
+                    );
+                }
 
                 if (isset($resposta['ocorrencias'])) {
                     $idsPossiveis = $queryOcorrencias->find()
@@ -168,7 +223,17 @@ class RelatoriosController extends AppController
         }
 
         //Perguntas de acordo com a dimensão
-        $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes'])->where(['dimensao' => $dimensao])->orderByAsc('ordem')->all();
+        if ($id != null) {
+            $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'created'])->where([
+                'dimensao' => 1,
+                'created <' =>  $relatorio->created
+            ])->orderByAsc('ordem')->all();
+
+        } else {
+            $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'created'])->where([
+                'dimensao' => $dimensao,
+            ])->orderByAsc('ordem')->all();
+        }
 
         //Monta array com ocorrencis existentes em relação a pergunta
         $ocorrencias = [];
@@ -201,6 +266,7 @@ class RelatoriosController extends AppController
             'escolaName' => $escolaName,
             'relatorio' => $relatorio,
             'dimensao' => $dimensao,
+            'usuarios_lista' => $usuarios_lista,
             'perguntas' => $perguntas,
             'ocorrencias' => $ocorrencias,
             'escola_id' => $escola_id,
@@ -218,10 +284,19 @@ class RelatoriosController extends AppController
         $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
         $Ocorrencias = $this->fetchTable('Ocorrencias');
 
+        if ($relatorioId) {
+            $relatorio = $this->Relatorios->get($relatorioId);
+        }
+
         // Total de perguntas por dimensão
         $countQuery = $queryPerguntas->find();
         $totalPorDimensao = $countQuery
-            ->select(['dimensao', 'total' => $countQuery->func()->count('*')])
+            ->select(['dimensao', 'total' => $countQuery->func()->count('*'), 'created'])
+            ->where(
+                !empty($relatorio->created)
+                    ? ['created <' => $relatorio->created]
+                    : []
+            )
             ->groupBy('dimensao')
             ->orderByAsc('dimensao')
             ->all()
@@ -229,12 +304,18 @@ class RelatoriosController extends AppController
             ->toArray();
 
         // $dt = $query->select(['dimensao', 'total' => $query->func()->count('*')])->groupBy('dimensao')->orderByAsc('dimensao')->all()->indexBy('dimensao')->toArray();
-
-        // Perguntas (id + dimensao + tipo), para cruzar com o que foi respondido
-        $perguntas = $queryPerguntas->find()
-            ->select(['id', 'dimensao', 'tipo'])
-            ->all();
-
+        if ($relatorioId) {
+            // $relatorio = $this->Relatorios->get($relatorioId);
+            // Perguntas (id + dimensao + tipo), para cruzar com o que foi respondido
+            $perguntas = $queryPerguntas->find()
+                ->select(['id', 'dimensao', 'tipo', 'created'])
+                ->where(['created <' => $relatorio->created])
+                ->all();
+        } else {
+            $perguntas = $queryPerguntas->find()
+                ->select(['id', 'dimensao', 'tipo'])
+                ->all();
+        }
         $perguntaIdsRespondidas = [];
 
         if ($relatorioId) {
