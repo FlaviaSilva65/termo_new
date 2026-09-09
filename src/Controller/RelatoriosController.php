@@ -43,6 +43,9 @@ class RelatoriosController extends AppController
         $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
         $Providencia = $this->fetchTable('Providencias');
 
+        // ------ MODO: pendências? ------
+        $somentePendencias = (bool)$this->request->getQuery('pendencias');
+
         // \Cake\Log\Log::debug('X-Requested-With: ' . $this->request->getHeaderLine('X-Requested-With'));
         // \Cake\Log\Log::debug('is ajax: ' . var_export($this->request->is('ajax'), true));
 
@@ -117,6 +120,47 @@ class RelatoriosController extends AppController
         //Monta o set da seção do termo e garante o nº de dimensões de
         $dimensao = $this->secoesTermo($dimensao, $queryPerguntas, $relatorio->id);
 
+        // ----- Se estiver em modo pendências, calcula quais dimensões ainda têm pendência -----
+        $dimensoesComPendencia = [];
+        if ($somentePendencias) {
+            $perguntaIdsPendentesGeral = $Providencia->find()
+                ->select(['pergunta_id'])
+                ->where(['relatorio_id' => $id, 'status' => 0])
+                ->all()
+                ->extract('pergunta_id')
+                ->toArray();
+
+            if (!empty($perguntaIdsPendentesGeral)) {
+                $dimensoesComPendencia = $queryPerguntas->find()
+                    ->select(['dimensao'])
+                    ->where(['id IN' => $perguntaIdsPendentesGeral])
+                    ->distinct(['dimensao'])
+                    ->orderByAsc('dimensao')
+                    ->all()
+                    ->extract('dimensao')
+                    ->toArray();
+            }
+
+            // Se a dimensão atual não tem mais pendência (ex: acabou de resolver a última),
+            // pula pra próxima dimensão da lista, ou volta ao painel se não sobrar nenhuma.
+            if (!$this->request->is(['post', 'put'])) {
+                if (!empty($dimensoesComPendencia) && !in_array($dimensao, $dimensoesComPendencia)) {
+                    $proxima = null;
+                    foreach ($dimensoesComPendencia as $d) {
+                        if ($d > $dimensao) {
+                            $proxima = $d;
+                            break;
+                        }
+                    }
+                    if ($proxima) {
+                        return $this->redirect(['action' => 'manterPerguntas', $proxima, $escola_id, $id, '?' => ['pendencias' => 1]]);
+                    }
+                    $this->Flash->success('Todas as pendências deste relatório foram resolvidas.');
+                    return $this->redirect(['action' => 'dash-supervisor']);
+                }
+            }
+        }
+
         if ($this->request->is(['post', 'put'])) {
             $data = $this->request->getData();
 
@@ -128,6 +172,13 @@ class RelatoriosController extends AppController
                     \Cake\Log\Log::debug('Erro ao salvar relatorio: ' . json_encode($relatorio->getErrors()));
                 }
             }
+
+            // Ids de perguntas válidas para este conjunto (evita erro de FK com ids "fantasmas")
+            $perguntaIdsValidasPost = $queryPerguntas->find()
+                ->select(['id'])
+                ->all()
+                ->extract('id')
+                ->toArray();
 
             foreach ($data['respostas'] ?? [] as $perguntaId => $resposta) {
 
@@ -219,21 +270,54 @@ class RelatoriosController extends AppController
             $this->Flash->success('Respostas salvas.');
 
             $proximaDimensao = (int)$this->request->getData('_proxima_dimensao', $dimensao);
-            return $this->redirect(['action' => 'manterPerguntas', $proximaDimensao, $escola_id, $id]);
+            $queryString = $somentePendencias ? ['?' => ['pendencias' => 1]] : [];
+
+            if ($somentePendencias) {
+                // Recalcula pendências restantes após o save
+                $pendentesRestantes = $Providencia->find()
+                    ->select(['pergunta_id'])
+                    ->where(['relatorio_id' => $id, 'status' => 0])
+                    ->all()
+                    ->extract('pergunta_id')
+                    ->toArray();
+
+                if (empty($pendentesRestantes)) {
+                    $this->Flash->success('Todas as pendências deste relatório foram resolvidas.');
+                    return $this->redirect(['action' => 'dash-supervisor']);
+                }
+
+                $dimensoesRestantes = $queryPerguntas->find()
+                    ->select(['dimensao'])
+                    ->where(['id IN' => $pendentesRestantes])
+                    ->distinct(['dimensao'])
+                    ->orderByAsc('dimensao')
+                    ->all()
+                    ->extract('dimensao')
+                    ->toArray();
+
+                // Se a dimensão atual ainda tem pendência, fica nela; senão, pula pra próxima disponível
+                $proximaDimensao = in_array($dimensao, $dimensoesRestantes)
+                    ? $dimensao
+                    : (collection($dimensoesRestantes)->filter(fn($d) => $d > $dimensao)->first() ?? min($dimensoesRestantes));
+            }
+            return $this->redirect(array_merge(
+                ['action' => 'manterPerguntas', $proximaDimensao, $escola_id, $id],
+                $queryString
+            ));
+            // return $this->redirect(['action' => 'manterPerguntas', $proximaDimensao, $escola_id, $id]);
         }
 
         //Perguntas de acordo com a dimensão
-        if ($id != null) {
-            $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'created'])->where([
-                'dimensao' => 1,
-                'created <' =>  $relatorio->created
-            ])->orderByAsc('ordem')->all();
+        $condicoes = ['dimensao' => $dimensao];
 
-        } else {
-            $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'created'])->where([
-                'dimensao' => $dimensao,
-            ])->orderByAsc('ordem')->all();
+        if ($id != null) {
+            $condicoes['created <'] = $relatorio->created;
         }
+        
+        $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'created'])->where([
+            'dimensao' => $dimensao,
+            'created <' =>  $relatorio->created
+        ])->orderByAsc('ordem')->all();
 
         //Monta array com ocorrencis existentes em relação a pergunta
         $ocorrencias = [];
@@ -262,6 +346,20 @@ class RelatoriosController extends AppController
                 ->toArray();
         }
 
+        // ----- Aplica o filtro de pendências por último, já com $respostasSalvas montado -----
+        if ($somentePendencias) {
+            $perguntaIdsPendentes = $Providencia->find()
+                ->select(['pergunta_id'])
+                ->where(['relatorio_id' => $id, 'status' => 0])
+                ->all()
+                ->extract('pergunta_id')
+                ->toArray();
+
+            $perguntas = $perguntas->filter(function ($p) use ($perguntaIdsPendentes) {
+                return in_array($p->id, $perguntaIdsPendentes);
+            });
+        }
+
         $this->set([
             'escolaName' => $escolaName,
             'relatorio' => $relatorio,
@@ -271,8 +369,9 @@ class RelatoriosController extends AppController
             'ocorrencias' => $ocorrencias,
             'escola_id' => $escola_id,
             'respostasSalvas' => $respostasSalvas ?? [],
-            'ocorrenciaIdsSalvas' => $ocorrenciaIdsSalvas ?? []
-
+            'ocorrenciaIdsSalvas' => $ocorrenciaIdsSalvas ?? [],
+            'somentePendencias' => $somentePendencias,
+            'dimensoesComPendencia' => $dimensoesComPendencia,
         ]);
     }
 
@@ -1544,5 +1643,100 @@ class RelatoriosController extends AppController
         }
 
         $this->set(compact('relatorio'));
+    }
+
+    public function pendencias($escola_id)
+    {
+        $this->Authorization->skipAuthorization();
+
+        $Providencias = $this->fetchTable('Providencias');
+        $Perguntas = $this->fetchTable('Perguntas');
+        $Relatorios = $this->fetchTable('Relatorios');
+        $UnidEscolares = $this->fetchTable('UnidEscolares');
+
+        $escolaName = $UnidEscolares->find()
+            ->select(['id', 'sigla', 'nm_unid_escolar'])
+            ->where(['id' => $escola_id])
+            ->first();
+
+        $pendenciasRaw = $Providencias->find()
+            ->where([
+                'unid_escolar_id' => $escola_id,
+                'status' => 0,
+            ])
+            ->orderByDesc('created')
+            ->all();
+
+        if ($pendenciasRaw->isEmpty()) {
+            $this->Flash->success('Não há pendências em aberto para esta escola.');
+            return $this->redirect($this->referer());
+        }
+
+        $relatorioIds = array_unique($pendenciasRaw->extract('relatorio_id')->toArray());
+
+        if (count($relatorioIds) === 1) {
+            $relatorioId = $relatorioIds[0];
+
+            $perguntaIdsPendentes = $pendenciasRaw
+                ->filter(fn($item) => $item->relatorio_id === $relatorioId)
+                ->extract('pergunta_id')
+                ->toArray();
+
+            $primeiraDimensao = $Perguntas->find()
+                ->select(['dimensao'])
+                ->where(['id IN' => $perguntaIdsPendentes])
+                ->orderByAsc('dimensao')
+                ->first();
+
+            return $this->redirect([
+                'action' => 'manterPerguntas',
+                $primeiraDimensao->dimensao ?? 1,
+                $escola_id,
+                $relatorioId,
+                '?' => ['pendencias' => 1],
+            ]);
+        }
+
+        $perguntaIds = $pendenciasRaw->extract('pergunta_id')->toArray();
+
+        $perguntas = $Perguntas->find()
+            ->where(['id IN' => $perguntaIds])
+            ->all()
+            ->indexBy('id')
+            ->toArray();
+
+        $relatorios = $Relatorios->find()
+            ->where(['id IN' => $relatorioIds])
+            ->all()
+            ->indexBy('id')
+            ->toArray();
+
+        $pendencias = [];
+        foreach ($pendenciasRaw as $item) {
+            $pergunta = $perguntas[$item->pergunta_id] ?? null;
+            $relatorio = $relatorios[$item->relatorio_id] ?? null;
+
+            $pendencias[] = [
+                'id' => $item->id,
+                'descricao' => $item->descricao,
+                'created' => $item->created,
+                'relatorio_id' => $item->relatorio_id,
+                'pergunta_id' => $item->pergunta_id,
+                'pergunta_descricao' => $pergunta->descricao ?? '(pergunta removida)',
+                'dimensao' => $pergunta->dimensao ?? null,
+                'data_relatorio' => $relatorio->data ?? null,
+            ];
+        }
+
+        $pendenciasPorRelatorio = [];
+        foreach ($pendencias as $p) {
+            $pendenciasPorRelatorio[$p['relatorio_id']][] = $p;
+        }
+
+        $this->set([
+            'escolaName' => $escolaName,
+            'escola_id' => $escola_id,
+            'pendenciasPorRelatorio' => $pendenciasPorRelatorio
+        ]);
     }
 }

@@ -22,7 +22,11 @@
 <?= $this->Form->create($relatorio, [
     "id" => "form-perguntas",
     "autocomplete" => "off",
-    "novalidate"
+    "novalidate",
+    "url" => array_merge(
+        ['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorio->id],
+        $somentePendencias ? ['?' => ['pendencias' => 1]] : []
+    ),
 ]) ?>
 
 <?php foreach ($perguntas as $key => $p): ?>
@@ -73,40 +77,54 @@
                 </div>
             <?php elseif ($p->tipo == "radio"): ?>
                 <!-- Radio button -->
-                <div class="grupo-resposta pads">
-                    <?= $this->Form->control(
-                        "respostas.{$p->id}.resposta",
-                        [
-                            'type' => 'radio',
-                            'options' => json_decode($p->opcoes ?? '', true),
-                            'value' => $respostaSalva->resposta ?? null,
-                            'label' => false,
-                            'legend' => false,
-                            'class' => 'form-check-input mt-0',
-                            'templates' => [
-                                'radioWrapper' => '<div class="resposta-radio">{{label}}</div>',
-                                'radio' => '<input type="radio" name="{{name}}" value="{{value}}"{{attrs}}>',
-                                'radioLabel' => '<label{{attrs}}>{{input}}{{text}}</label>',
-                            ],
-                        ]
-                    ) ?>
+                <div class="d-flex flex-wrap align-items-center gap-3 pads">
+
+                    <div class="grupo-resposta">
+                        <?= $this->Form->control(
+                            "respostas.{$p->id}.resposta",
+                            [
+                                'type' => 'radio',
+                                'options' => json_decode($p->opcoes ?? '', true),
+                                'value' => $respostaSalva->resposta ?? null,
+                                'label' => false,
+                                'legend' => false,
+                                'class' => 'form-check-input mt-0',
+                                'templates' => [
+                                    'radioWrapper' => '<div class="resposta-radio">{{label}}</div>',
+                                    'radio' => '<input type="radio" name="{{name}}" value="{{value}}"{{attrs}}>',
+                                    'radioLabel' => '<label{{attrs}}>{{input}}{{text}}</label>',
+                                ],
+                            ]
+                        ) ?>
+                    </div>
+
+                    <?php if ($p->id == 35): ?>
+                        <input type="hidden" name="id_usuario" value="">
+                        <div class="usuario-select">
+                            <div class="usuario-select-wrapper">
+                                <div class="usuario-select-display">
+                                    <span class="usuario-selecionado">
+                                        ⇩ Selecione quem acompanhou
+                                    </span>
+                                </div>
+                                <div class="usuario-select-options p-1">
+                                    <?php foreach ($usuarios_lista as $value => $nome) ?>
+                                    <div class="usuario-option px-1 rounded text-secondary" data-value="<?= $value ?>">
+                                        <i class="bi bi-person-circle pt-3"></i>
+                                        <span class="usuario-nome text-nowrap"><?= h($nome) ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <?= $this->Form->error('id_usuario') ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
                 </div>
             <?php endif; ?>
-            <?php if ($p->id == 35): ?>
-                <div class="pads">
-                    <?= $this->Form->control(
-                        "relatorio.responsavel_id",
-                        [
-                            "type" => "select",
-                            "label" => false,
-                            "class" => 'mt-2 smart-textarea place-cor',
-                            "options" => $usuarios_lista,
-                            "empty" => "Selecione um usuário",
-                            "value" => $relatorio->responsavel_id ?? '',
-                        ]
-                    ) ?>
-                </div>
-            <?php elseif ($p->tipo == "data"): ?>
+
+            <?php if ($p->tipo == "data"): ?>
                 <div class="pads">
                     <?= $this->Form->control(
                         'relatorio.data',
@@ -119,6 +137,10 @@
                         ]
                     ) ?>
                 </div>
+                
+            <?php elseif ($p->id == 35) : ?>
+                <!-- Já foi renderizado o seletor do responsável junto do radio, acima 
+            dessa forma não tem campo de observação -->
             <?php else : ?>
                 <div class="pads">
                     <?= $this->Form->control(
@@ -185,3 +207,68 @@
 <?php endforeach; ?>
 
 <?= $this->Form->end() ?>
+<script>
+    document.querySelectorAll('.usuario-select').forEach(select => {
+        // Define o comprimento ideal do select de acordo com a maior frase nas opções
+        const options = select.querySelectorAll('.usuario-option');
+        const selecionado = select.querySelector('.usuario-selecionado');
+        const hidden = document.querySelector('[name="id_usuario"]');
+        const display = select.querySelector('.usuario-select-display');
+        const optionsContainer = select.querySelector('.usuario-select-options');
+        // Define a largura pelo maior conteúdo:
+        // placeholder ou maior option
+        const larguraPlaceholder = display.scrollWidth;
+        const larguraOptions = optionsContainer.scrollWidth;
+        const maiorLargura = Math.max(larguraPlaceholder, larguraOptions);
+        select.style.width = maiorLargura + 'px';
+        options.forEach(option => {
+            option.addEventListener('click', () => {
+                selecionado.innerHTML = option.innerHTML;
+                hidden.value = option.dataset.value;
+                select.classList.remove('aberto');
+            });
+        });
+        // Somente uma opção: seleciona automaticamente
+        if (options.length === 1) {
+            const option = options[0];
+            selecionado.innerHTML = option.innerHTML;
+            hidden.value = option.dataset.value;
+            select.classList.add('read');
+        }
+        // Mostra as opções ao clicar
+        display.addEventListener('click', () => {
+            if (select.classList.contains('read')) return;
+            select.classList.toggle('aberto');
+        });
+        // Fecha as opções caso o mouse deixe o perimetro
+        optionsContainer.addEventListener('mouseleave', () => {
+            select.classList.remove('aberto');
+        });
+    });
+    // Controle sim/não para visualização do select
+    const radioAcompanhou = document.querySelectorAll('input[name="resposta-rd35"]');
+    const usuarioSelect = document.querySelector('.usuario-select');
+    const hiddenUsuario = document.querySelector('[name="id_usuario"]');
+    const selecionado = usuarioSelect.querySelector('.usuario-selecionado');
+    const atualizarUsuarioSelect = () => {
+        const radioSelecionado = document.querySelector('input[name="resposta-rd35"]:checked');
+        if (radioSelecionado && radioSelecionado.value === '1')
+            // Sim
+            usuarioSelect.classList.remove('d-none');
+        else {
+            // Não ou nenhuma opção selecionada
+            usuarioSelect.classList.add('d-none');
+            // Limpa o valor enviado
+            hiddenUsuario.value = '';
+            // Limpa a apresentação visual
+            selecionado.innerHTML = '⇩ Selecione quem acompanhou';
+            // Garante que as options estejam fechadas
+            usuarioSelect.classList.remove('aberto');
+        }
+    };
+    radioAcompanhou.forEach(radio => {
+        radio.addEventListener('change', atualizarUsuarioSelect);
+    });
+    // Verifica o estado inicial
+    atualizarUsuarioSelect();
+</script>

@@ -584,7 +584,7 @@ class UsuariosController extends AppController
             }
 
 
-            $this->Flash->error('Usuário ou senha inválido.');
+            $this->Flash->error('Usuário não cadastrado ou senha inválida.');
         }
     }
 

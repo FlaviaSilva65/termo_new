@@ -2,30 +2,64 @@
     <?=
     $this->element('secoes_termo') .
         '<div class="w-100 p-0 p-lg-2">' .
-        $this->element('perguntas') .
-        '<div class="bg-white p-2 rounded-bottom shadow d-flex justify-content-between align-items-center d-print-none">' .
-        $this->Html->link(
-            '<i class="bi bi-arrow-left me-2"></i>Etapa enterior',
-            ['action' => 'manterPerguntas', $dimensao - 1, $escola_id, $relatorio->id],
-            ['class' => 'btn btn-primary btn-sm btn-s-pill shadow link-navegacao '.$desabilitaAnt.'', 'escape' => false]
-        ) .
-        '<div class="">' .
-        $this->Html->link(
-            '<i class="bi bi-floppy me-2"></i>Salvar rascunho',
-            '/',
-            ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho', 'escape' => false]
-        ) .
-        $this->Html->link(
-            'Próxima etapa<i class="bi bi-arrow-right ms-2"></i>',
-            ['action' => 'manterPerguntas', $dimensao + 1, $escola_id, $relatorio->id],
-            ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-navegacao '.$desabilitaProx.'', 'escape' => false]
-        ) .
-        '</div>
+        $this->element('perguntas') ?>
+    <div class="bg-white p-2 rounded-bottom shadow d-flex justify-content-between align-items-center d-print-none">
+        <?php if (empty($somentePendencias)) : ?>
+            <?= $this->Html->link(
+                '<i class="bi bi-arrow-left me-2"></i>Etapa enterior',
+                ['action' => 'manterPerguntas', $dimensao - 1, $escola_id, $relatorio->id],
+                ['class' => 'btn btn-primary btn-sm btn-s-pill shadow link-navegacao ' . $desabilitaAnt . '', 'escape' => false]
+            ) ?>
+            <div class="">
+                <?= $this->Html->link(
+                    '<i class="bi bi-floppy me-2"></i>Salvar rascunho',
+                    '/',
+                    ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho', 'escape' => false]
+                ) ?>
+                <?= $this->Html->link(
+                    'Próxima etapa<i class="bi bi-arrow-right ms-2"></i>',
+                    ['action' => 'manterPerguntas', $dimensao + 1, $escola_id, $relatorio->id],
+                    ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-navegacao ' . $desabilitaProx . '', 'escape' => false]
+                ) ?>
             </div>
-        </div>'
-    ?>
+        <?php else: ?>
+
+            <?= $this->Html->link(
+                '<i class="bi bi-arrow-left me-2"></i>Voltar ao painel',
+                ['action' => 'dash-supervisor', $identity->id],
+                ['class' => 'btn btn-primary btn-sm btn-s-pill shadow', 'escape' => false]
+            ) ?>
+
+            <div class="">
+                <?php
+                $proximaComPendencia = null;
+                foreach ($dimensoesComPendencia as $d) {
+                    if ($d > $dimensao) {
+                        $proximaComPendencia = $d;
+                        break;
+                    }
+                }
+                ?>
+                <?php if ($proximaComPendencia): ?>
+                    <?= $this->Html->link(
+                        'Próxima pendência<i class="bi bi-arrow-right ms-2"></i>',
+                        ['action' => 'manterPerguntas', $proximaComPendencia, $escola_id, $relatorio->id, '?' => ['pendencias' => 1]],
+                        ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-navegacao', 'escape' => false]
+                    ) ?>
+                <?php else: ?>
+                    <?= $this->Html->link(
+                        '<i class="bi bi-check-circle me-2"></i>Finalizar pendências',
+                        ['action' => 'dash-supervisor'],
+                        ['class' => 'btn btn-success btn-sm btn-e-pill shadow', 'escape' => false]
+                    ) ?>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
 <script>
+    const somentePendencias = <?= $somentePendencias ? 'true' : 'false' ?>;
+
     // Radio
     function atualizaResposta(radio) {
         const grupo = radio.closest('.grupo-resposta');
@@ -81,7 +115,7 @@
             if (novoStatus === '1') {
                 this.classList.replace('btn-warning', 'btn-success');
                 icon.classList.replace('bi-exclamation-circle', 'bi-check-circle');
-                span.innerHTML = 'Requerido<br>Acompanhamento';
+                span.innerHTML = somentePendencias ? 'Resolvido<br>Acompanhamento' : 'Requerido<br>Acompanhamento';
             } else {
                 this.classList.replace('btn-success', 'btn-warning');
                 icon.classList.replace('bi-check-circle', 'bi-exclamation-circle');

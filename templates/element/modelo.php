@@ -9,7 +9,7 @@
             <h5 class="mb-0 text-dark-primary fw-bold">' . $titulo . '</h5>
             <div class="d-flex justify-content-end">
                 <p class="alert alert-primary rounded-pill fs-7 me-2">Total de Escolas: ' . count($titulos) . '</p>
-                <p class="alert alert-danger rounded-pill fs-7">Total de Pendencias: '. $totalPendencias . '</p>
+                <p class="alert alert-danger rounded-pill fs-7">Total de Pendencias: ' . $totalPendencias . '</p>
             </div>
         </div>
     </div>
@@ -22,9 +22,17 @@
                     <div class="d-flex align-items-center">
                         <div class="bg-white rounded-circle d-flex justify-content-center" style="width:1.4rem;height:1.4rem;">' . ($key + 1) . '</div>
                         <h6 class="mb-0 p-2 text-white text-truncate" style="max-width: 220px;">' . $titulo->texto . '</h6>
-                        </div>
-                        <div class="rounded-pill alert alert-danger fs-7 px-1">' . $titulo->pendencias . ' Pendências</div>
-                    </div>
+                        </div>';
+        echo $this->Html->link(
+            '<div class="rounded-pill alert alert-danger fs-7 px-1">' . $titulo->pendencias . ' Pendências</div>',
+            [
+                'action' => 'pendencias',
+                $titulo->escola_id
+            ],
+            ['escape' => false,]
+        ) .
+
+            '</div>
                     <div class="bg-white text-dark rounded-bottom p-2 shadow flex-grow-1">
                         <div class="w-100 bg-white py-1 boder-bottom d-flex justify-content-between fs-7">
                             <p class="text-dark-primary me-3">' . count($titulo->itens) . ' Termos</p>

@@ -37,7 +37,7 @@
         'print',
         'main',
         'smartTextarea',
-        
+
     ]) ?>
     <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"> -->
 
@@ -60,12 +60,10 @@
 <body class="container-fluid gx-0 position-relative min-vh-100">
     <?= $this->element('header') ?>
 
-    <?= $this->fetch('content') ?>
-
-    <div class="text-center">
-        <?= $this->Flash->render(); ?>
-    </div>
-    <div class="container-fluid  pb-0 flex-grow-1">
+    <div class="container-fluid pb-0 flex-grow-1">
+        <div class="text-center">
+            <?= $this->Flash->render(); ?>
+        </div>
         <?php
         $session = $this->request->getSession();
 
@@ -90,8 +88,9 @@
             </div>
         <?php endif; ?>
 
+        <?= $this->fetch('content') ?>
+
         <?php if (isset($identity)) { ?>
-            <?php $this->fetch('content') ?>
 
             <!-- <div class="container vstack px-0">
                 <div class="position-relative px-4 
@@ -101,8 +100,7 @@
                     
                 </div>
             </div> -->
-        <?php } else { ?>
-            <?php $this->fetch('content') ?>
+
         <?php } ?>
     </div>
     <?= $this->element('footer') ?>

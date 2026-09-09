@@ -513,6 +513,59 @@ label { margin-top: 0.5em; }
     padding: 0.3rem .8rem .45rem .5rem;
 }
 
+/* ---------------------- select ------------------------------- */
+.usuario-select {
+    font-size: 0.9rem;
+    position: relative;
+    width: max-content;
+}
+.usuario-select-wrapper { position: relative; }
+.usuario-select-display {
+    width: max-content;
+    min-width: 100%;
+    border: 1px solid var(--bs-gray-400);
+    border-radius: .3rem;
+    padding: .15em .43em;
+    margin-top: 0.45em;
+    display: flex;
+    align-items: center;
+    /*justify-content: space-between;*/
+    box-sizing: border-box;
+    cursor: pointer;
+    color: var(--bs-secondary);
+    background-color: #fff;
+    white-space: nowrap;
+}
+.usuario-select-options {
+    width: max-content;
+    min-width: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-5px);
+    transition:
+        opacity .2s ease,
+        transform .2s ease,
+        visibility .2s ease;
+    border: 1px solid var(--bs-gray-400);
+    border-top: 0;
+    border-radius: 0 0 .3rem .3rem;
+    overflow: hidden;
+    background: #fff;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+}
+.usuario-select.aberto .usuario-select-display { border-radius: .3rem .3rem 0 0; }
+.usuario-select.aberto .usuario-select-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.usuario-select.aberto .usuario-select-display > i { transform: rotate(180deg); }
+.usuario-option{ border-bottom: .2em solid white; white-space: nowrap; }
+.usuario-option:hover { background-color: #e2ffee; border-bottom: .2em solid green; }
+
 /* ----------------------- Media Screen ------------------------ */
 @media screen and (min-width: 1800px){ /* Telas MUITO grandes (lousa, TV, etc) */
     .custom-popover .popover-img-container {
