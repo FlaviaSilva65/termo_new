@@ -74,10 +74,6 @@ class RelatoriosController extends AppController
             ->where(['cd_rf IN' => $rf_list])
             ->all();
 
-        $usuarios_lista = collection($gestores)
-            ->combine('id', 'nm_usuario') // ajuste os nomes dos campos conforme sua tabela
-            ->toArray();
-
         $relatorio = $this->Relatorios->newEmptyEntity();
 
         if ($id) {
@@ -107,12 +103,23 @@ class RelatoriosController extends AppController
                 'termo_id' => $termo_id,
                 'usuario_id' => $identity->id,
                 'unid_escolar_id' => $escola_id,
-                'data' => date('Y-m-d'),
+                // 'data' => date('Y-m-d'),
                 'ic_rascunho' => 1, // 1 = rascunho, 0 = finalizado
             ]);
 
             $this->Relatorios->save($relatorio);
             return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorio->id]);
+        }
+
+        if ($relatorio->responsavel_id) {
+
+            $usuarios_lista = collection($Usuarios->find()->where(['id' => $relatorio->responsavel_id])->all())
+                ->combine('id', 'nm_usuario')
+                ->toArray();
+        } else {
+            $usuarios_lista = collection($gestores)
+                ->combine('id', 'nm_usuario') // ajuste os nomes dos campos conforme sua tabela
+                ->toArray();
         }
 
         $this->Authorization->authorize($relatorio, 'manterPerguntas');
@@ -170,6 +177,42 @@ class RelatoriosController extends AppController
                 $relatorio = $this->Relatorios->patchEntity($relatorio, $data['relatorio']);
                 if (!$this->Relatorios->save($relatorio)) {
                     \Cake\Log\Log::debug('Erro ao salvar relatorio: ' . json_encode($relatorio->getErrors()));
+                }
+            }
+
+            // Se veio a data da visita, registra também em Respostas
+            // para contar como pergunta respondida na dimensão.
+            if (!empty($data['relatorio']['data'])) {
+                $perguntaData = $queryPerguntas->find()
+                    ->select(['id'])
+                    ->where(['dimensao' => $dimensao, 'tipo' => 'data'])
+                    ->first();
+
+                if ($perguntaData) {
+                    $existenteData = $Respostas->find()
+                        ->where(['relatorio_id' => $id, 'pergunta_id' => $perguntaData->id])
+                        ->first();
+
+                    $entityData = $existenteData ?: $Respostas->newEntity([
+                        'relatorio_id' => $id,
+                        'pergunta_id' => $perguntaData->id,
+                    ]);
+
+                    $entityData->resposta = $data['relatorio']['data'];
+                    $entityData->status = 1; // sempre considerada "sem pendência"
+                    $Respostas->save($entityData);
+                }
+            }
+
+
+            // Salva o usuário selecionado na pergunta 35 (id_usuario)
+            if ($this->request->getData('responsavel_id')) {
+                $relatorio = $this->Relatorios->patchEntity($relatorio, [
+                    'responsavel_id' => $this->request->getData('responsavel_id'),
+                ]);
+
+                if (!$this->Relatorios->save($relatorio)) {
+                    \Cake\Log\Log::debug('Erro ao salvar responsavel_id: ' . json_encode($relatorio->getErrors()));
                 }
             }
 
@@ -313,8 +356,8 @@ class RelatoriosController extends AppController
         if ($id != null) {
             $condicoes['created <'] = $relatorio->created;
         }
-        
-        $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'created'])->where([
+
+        $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'dimensao', 'created'])->where([
             'dimensao' => $dimensao,
             'created <' =>  $relatorio->created
         ])->orderByAsc('ordem')->all();
@@ -732,7 +775,9 @@ class RelatoriosController extends AppController
                 'UsuarioUnidEscolares.usuario_id' => $id
             ])
             ->contain([
-                'UnidEscolares',
+                'UnidEscolares' => function ($q) {
+                    return $q->where(['UnidEscolares.ativo' => 1]);
+                }
             ])
             ->all();
 
@@ -1678,7 +1723,7 @@ class RelatoriosController extends AppController
             $relatorioId = $relatorioIds[0];
 
             $perguntaIdsPendentes = $pendenciasRaw
-                ->filter(fn($item) => $item->relatorio_id === $relatorioId)
+                ->filter(fn($item) => $item->relatorio_id == $relatorioId)
                 ->extract('pergunta_id')
                 ->toArray();
 

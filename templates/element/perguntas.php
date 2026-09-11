@@ -88,9 +88,9 @@
                                 'value' => $respostaSalva->resposta ?? null,
                                 'label' => false,
                                 'legend' => false,
-                                'class' => 'form-check-input mt-0',
+                                'class' => 'form-check-input mt-0' . ($p->id == 35 ? ' resposta-35' : ''),
                                 'templates' => [
-                                    'radioWrapper' => '<div class="resposta-radio">{{label}}</div>',
+                                    'radioWrapper' => '<div class="resposta-radio mb-2">{{label}}</div>',
                                     'radio' => '<input type="radio" name="{{name}}" value="{{value}}"{{attrs}}>',
                                     'radioLabel' => '<label{{attrs}}>{{input}}{{text}}</label>',
                                 ],
@@ -99,8 +99,8 @@
                     </div>
 
                     <?php if ($p->id == 35): ?>
-                        <input type="hidden" name="id_usuario" value="">
-                        <div class="usuario-select">
+                        <input type="hidden" name="responsavel_id" class="id-responsavel" value="">
+                        <div class="usuario-select mb-2">
                             <div class="usuario-select-wrapper">
                                 <div class="usuario-select-display">
                                     <span class="usuario-selecionado">
@@ -108,19 +108,17 @@
                                     </span>
                                 </div>
                                 <div class="usuario-select-options p-1">
-                                    <?php foreach ($usuarios_lista as $value => $nome) ?>
-                                    <div class="usuario-option px-1 rounded text-secondary" data-value="<?= $value ?>">
-                                        <i class="bi bi-person-circle pt-3"></i>
-                                        <span class="usuario-nome text-nowrap"><?= h($nome) ?></span>
-                                    </div>
+                                    <?php foreach ($usuarios_lista as $value => $nome): ?>
+                                        <div class="usuario-option px-1 rounded text-secondary" data-value="<?= h($value) ?>">
+                                            <i class="bi bi-person-circle pt-3"></i>
+                                            <span class="usuario-nome text-nowrap"><?= h($nome) ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
-                            <?= $this->Form->error('id_usuario') ?>
-
+                            <?= $this->Form->error('responsavel_id') ?>
                         </div>
-
                     <?php endif; ?>
-
                 </div>
             <?php endif; ?>
 
@@ -132,16 +130,14 @@
                             'type' => 'date',
                             'label' => false,
                             'class' => 'mb-2 py-1 text-secondary',
-                            'style' => 'width:9rem;',
+                            'style' => 'width:10rem;',
                             'value' => $relatorio->data ?? null,
                         ]
                     ) ?>
                 </div>
-                
-            <?php elseif ($p->id == 35) : ?>
-                <!-- Já foi renderizado o seletor do responsável junto do radio, acima 
-            dessa forma não tem campo de observação -->
-            <?php else : ?>
+            <?php endif; ?>
+
+            <?php if ($p->id != 35 && $p->tipo != "data") : ?>
                 <div class="pads">
                     <?= $this->Form->control(
                         "respostas.{$p->id}.observacao",
@@ -166,13 +162,13 @@
                             Respondida
                         </p>
                         <p class="text-nowrap mb-0 fs-8 text-secondary">
-                            em <?= $respostaSalva?->modified ?>
+                            em <?= $p->tipo == "data" ? $relatorio->modified : ($respostaSalva?->modified ?? '') ?>
                         </p>
                     </div>
                 </div>
 
                 <?php
-                $statusSalvo = $respostaSalva->status ?? 0;
+                $statusSalvo = $respostaSalva->status ?? 1;
                 ?>
                 <?php if ($p->tipo != "data"): ?>
                     <button
@@ -208,67 +204,150 @@
 
 <?= $this->Form->end() ?>
 <script>
-    document.querySelectorAll('.usuario-select').forEach(select => {
-        // Define o comprimento ideal do select de acordo com a maior frase nas opções
-        const options = select.querySelectorAll('.usuario-option');
-        const selecionado = select.querySelector('.usuario-selecionado');
-        const hidden = document.querySelector('[name="id_usuario"]');
-        const display = select.querySelector('.usuario-select-display');
-        const optionsContainer = select.querySelector('.usuario-select-options');
-        // Define a largura pelo maior conteúdo:
-        // placeholder ou maior option
-        const larguraPlaceholder = display.scrollWidth;
-        const larguraOptions = optionsContainer.scrollWidth;
-        const maiorLargura = Math.max(larguraPlaceholder, larguraOptions);
-        select.style.width = maiorLargura + 'px';
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const radios35 = document.querySelectorAll('.resposta-35');
+
+        const usuarioSelect = document.querySelector('.usuario-select');
+
+        if (!usuarioSelect) {
+            return;
+        }
+
+        const hiddenUsuario = usuarioSelect
+            .parentElement
+            .querySelector('.id-responsavel');
+
+        const selecionado = usuarioSelect.querySelector(
+            '.usuario-selecionado'
+        );
+
+        const display = usuarioSelect.querySelector(
+            '.usuario-select-display'
+        );
+
+        const optionsContainer = usuarioSelect.querySelector(
+            '.usuario-select-options'
+        );
+
+        const options = usuarioSelect.querySelectorAll(
+            '.usuario-option'
+        );
+
+
+        function atualizarUsuarioSelect() {
+
+            const radioSelecionado = document.querySelector(
+                '.resposta-35:checked'
+            );
+
+
+            // Se marcou SIM
+            if (
+                radioSelecionado &&
+                radioSelecionado.value === '1'
+            ) {
+
+                usuarioSelect.classList.remove('d-none');
+
+
+                // Se existe somente um usuário
+                if (options.length === 1) {
+
+                    const option = options[0];
+
+                    selecionado.innerHTML = option.innerHTML;
+
+                    hiddenUsuario.value = option.dataset.value;
+
+                    usuarioSelect.classList.add('read');
+
+                } else {
+
+                    usuarioSelect.classList.remove('read');
+
+                }
+
+            } else {
+
+                // NÃO ou nenhuma resposta
+
+                usuarioSelect.classList.add('d-none');
+
+
+                // Limpa o valor
+                hiddenUsuario.value = '';
+
+
+                // Limpa o texto
+                selecionado.innerHTML =
+                    '⇩ Selecione quem acompanhou';
+
+
+                // Fecha as opções
+                usuarioSelect.classList.remove('aberto');
+
+            }
+
+        }
+
+
+        // Clique nas opções de usuários
         options.forEach(option => {
-            option.addEventListener('click', () => {
+
+            option.addEventListener('click', function() {
+
                 selecionado.innerHTML = option.innerHTML;
-                hidden.value = option.dataset.value;
-                select.classList.remove('aberto');
+
+                hiddenUsuario.value = option.dataset.value;
+
+                usuarioSelect.classList.remove('aberto');
+
             });
+
         });
-        // Somente uma opção: seleciona automaticamente
-        if (options.length === 1) {
-            const option = options[0];
-            selecionado.innerHTML = option.innerHTML;
-            hidden.value = option.dataset.value;
-            select.classList.add('read');
-        }
-        // Mostra as opções ao clicar
-        display.addEventListener('click', () => {
-            if (select.classList.contains('read')) return;
-            select.classList.toggle('aberto');
+
+
+        // Clique para abrir o select
+        display.addEventListener('click', function() {
+
+            // Se só existe um usuário, não abre
+            if (usuarioSelect.classList.contains('read')) {
+                return;
+            }
+
+
+            // Só permite abrir se existir mais de um
+            if (options.length > 1) {
+
+                usuarioSelect.classList.toggle('aberto');
+
+            }
+
         });
-        // Fecha as opções caso o mouse deixe o perimetro
-        optionsContainer.addEventListener('mouseleave', () => {
-            select.classList.remove('aberto');
-        });
-    });
-    // Controle sim/não para visualização do select
-    const radioAcompanhou = document.querySelectorAll('input[name="resposta-rd35"]');
-    const usuarioSelect = document.querySelector('.usuario-select');
-    const hiddenUsuario = document.querySelector('[name="id_usuario"]');
-    const selecionado = usuarioSelect.querySelector('.usuario-selecionado');
-    const atualizarUsuarioSelect = () => {
-        const radioSelecionado = document.querySelector('input[name="resposta-rd35"]:checked');
-        if (radioSelecionado && radioSelecionado.value === '1')
-            // Sim
-            usuarioSelect.classList.remove('d-none');
-        else {
-            // Não ou nenhuma opção selecionada
-            usuarioSelect.classList.add('d-none');
-            // Limpa o valor enviado
-            hiddenUsuario.value = '';
-            // Limpa a apresentação visual
-            selecionado.innerHTML = '⇩ Selecione quem acompanhou';
-            // Garante que as options estejam fechadas
+
+
+        // Fecha ao sair do campo
+        optionsContainer.addEventListener('mouseleave', function() {
+
             usuarioSelect.classList.remove('aberto');
-        }
-    };
-    radioAcompanhou.forEach(radio => {
-        radio.addEventListener('change', atualizarUsuarioSelect);
+
+        });
+
+
+        // Evento dos radios
+        radios35.forEach(radio => {
+
+            radio.addEventListener(
+                'change',
+                atualizarUsuarioSelect
+            );
+
+        });
+
+
+        // Estado inicial
+        atualizarUsuarioSelect();
+
     });
-    // Verifica o estado inicial
-    atualizarUsuarioSelect();
 </script>
