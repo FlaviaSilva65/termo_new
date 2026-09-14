@@ -43,6 +43,7 @@
 
     <?=
     $this->Html->script([
+        'jquery.min',
         'bootstrap.bundle.min',
         'js47061',
         'script',

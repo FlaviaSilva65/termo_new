@@ -86,9 +86,55 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                             : ''
                         )
                     );
-            }
+            } ?>
 
-            ?>
+            <?php if (
+                isset($identity) &&
+                ($identity->tp_usuarios_id == 6 || $identity->tp_usuarios_id == 9)
+            ): ?>
+
+                <?php
+                $urlUsuarios = [
+                    'controller' => 'Usuarios',
+                    'action' => 'add'
+                ];
+                ?>
+
+                <div class="dropdown pushable-ignore order-2">
+
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm d-flex align-items-center py-0 px-1"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        data-bs-auto-close="outside">
+                        <i class="bi bi-person-workspace fs-4 me-2"></i>
+
+                        <span class="fs-6 d-none d-md-inline">
+                            Usuários
+                        </span>
+
+                        <i class="bi bi-chevron-down smaller ms-1"></i>
+                    </button>
+
+
+                    <div class="dropdown-menu">
+
+                        <?= $this->Html->link(
+                            '<i class="bi bi-people me-2"></i>
+                <span>Cadastrar</span>',
+                            $urlUsuarios,
+                            [
+                                'class' => 'dropdown-item d-flex align-items-center',
+                                'escape' => false
+                            ]
+                        ) ?>
+
+                    </div>
+
+                </div>
+
+            <?php endif; ?>
         </div>
 
         <?php if (isset($identity)) {  ?>

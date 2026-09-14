@@ -13,7 +13,7 @@ class DashEscolasTable extends Table
     public function initialize(array $config): void
     {
         parent::initialize($config);
-        $this->setConnection(ConnectionManager::get('dashescola'));
+        $this->setConnection(ConnectionManager::get('bdescola'));
         $this->setTable('escolas');
         $this->setPrimaryKey('id_escola');
 

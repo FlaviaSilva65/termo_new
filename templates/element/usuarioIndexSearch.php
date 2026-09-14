@@ -2,19 +2,19 @@
 
     <div class="col-12 top-purple-bar mx-0 my-2 d-flex justify-content-center align-items-center">
         <div class="col-3">
-            <h5 class="ms-4 text-white">Nome</h5>
+            <h5 class="ms-4 text-dark-primary fw-bold">Nome</h5>
         </div>
         <div class="col-2">
-            <h5 class="ms-4 text-white">CPF</h5>
+            <h5 class="ms-4 text-dark-primary fw-bold">CPF</h5>
         </div>
         <div class="col-2" style="max-width: 240px; white-space: nowrap;overflow:hidden;text-overflow: ellipsis;">
-            <h5 class="ms-5 text-white">E-mail</h5>
+            <h5 class="ms-5 text-dark-primary fw-bold">E-mail</h5>
         </div>
         <div class="col-1">
-            <h5 class="ms-3 text-center text-white">Ativo</h5>
+            <h5 class="ms-3 text-center text-dark-primary fw-bold">Ativo</h5>
         </div>
-        <div class="col-1 text-center text-white">
-            <h5 class="ms-3">Grupo</h5>
+        <div class="col-1 text-center">
+        <h5 class="ms-3 text-center text-dark-primary fw-bold">Grupo</h5>
         </div>
         <div class="col-3 text-center">
 

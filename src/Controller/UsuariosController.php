@@ -538,23 +538,13 @@ class UsuariosController extends AppController
                             return $this->redirect('/');
                         }
                     }
-                } else {
-                    debug('Deu ruim');
-                    die;
-                }
-
-                // Busca o setor do usuário (necessário para tp 2)
-
-
-
-
-                // debug($setor);
-                // die;
+                } elseif ($tpUsuarioId == 9 || $tpUsuarioId == 6) {
+                    return $this->redirect(['controller' => 'Usuarios', 'action' => 'index']);
 
 
                 // Redireciona conforme o tipo de usuário
-                if ($tpUsuarioId == 9 || $tpUsuarioId == 6) {
-                    return $this->redirect(['controller' => 'Usuarios', 'action' => 'index']);
+                // if ($tpUsuarioId == 9 || $tpUsuarioId == 6) {
+                //     return $this->redirect(['controller' => 'Usuarios', 'action' => 'index']);
                 } elseif ($tpUsuarioId == 4) {
                     return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_subsecretaria']);
                 } elseif ($tpUsuarioId == 2) {
