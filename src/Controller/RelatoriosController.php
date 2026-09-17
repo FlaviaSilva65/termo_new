@@ -1169,6 +1169,8 @@ class RelatoriosController extends AppController
     {
         $this->Authorization->skipAuthorization();
 
+        // debug($this->request->getData());
+        // die;
         $escola_id = $escola_id + 0;
         $user = $this->getRequest()->getAttribute('identity');
 
@@ -1177,91 +1179,49 @@ class RelatoriosController extends AppController
 
         $escola = $unid_escolares->get($escola_id);
 
-        $escolaName = $escola;
-
         $ano = date('Y');
-        $relatorios_assin = $this->Relatorios->find()->where([
-            'usuario_id' => $user->id,
-            'YEAR(data)' => $ano,
-            'unid_escolar_id' => $escola_id,
-            'ic_rascunho' => 0,
-            'OR' => [
-                [
-                    'id_ass_super is not' => null,
-                    'id_ass_dir is not' => null
-                ],
-                [
-                    'ic_cancelado' => 1
-                ]
-            ]
-        ])->contain(['UnidEscolares'])
-            ->toArray();
 
-        /** Pensar melhor nessa busca  */
+        // Verifica se foi solicitado mostrar somente os relatórios
+        // que estão sem assinatura
+        $somentePendentes = $this->request->getQuery('pendentes') == 1;
 
-        $condicaoBase = [
-            'unid_escolar_id' => $escola_id,
-            'usuario_id' => $user->id,
-            'YEAR(data)' => $ano,
-            'ic_rascunho' => 0,
-        ];
-
-        if ($user->tp_usuarios_id == 1 || $user->tp_usuarios_id == 5) {
-
-            $relatorios_s_assin = $this->Relatorios->find()->where(array_merge($condicaoBase, ['id_ass_dir is' => null]))
-                ->contain(['UnidEscolares'])
-                ->orderByDesc('Relatorios.id')
-                ->toArray();
-        } elseif ($user->tp_usuarios_id == 4) {
-            $relatorios_s_assin = $this->Relatorios->find()->where(array_merge(
-                $condicaoBase,
-                ['id_ass_sub is' => null]
-            ))
-                ->contain(['UnidEscolares'])->orderByDesc('Relatorios.id')
-                ->toArray();
-        } else {
-            $relatorios_s_assin = $this->Relatorios->find()->where(array_merge($condicaoBase, [
-                'OR' => [
-                    [
-                        'id_ass_dir is' => null,
-                        'id_ass_sub is' => null
-                    ]
-                ]
-            ]))
-                ->contain(['UnidEscolares'])
-                ->orderByDesc('Relatorios.id')
-                ->toArray();
-        }
         if ($user->tp_usuarios_id == 2) {
 
-            $relatorio_rascunho = $this->Relatorios->find()->where([
-                'usuario_id' => $user->id,
-                'unid_escolar_id' => $escola_id,
-                'YEAR(data)' => $ano,
-                'ic_rascunho' => 1
-            ])->contain(['UnidEscolares'])
-                ->toArray();
+            // $relatorios = $this->Relatorios->find()
+            //     ->where([
+            //         'Relatorios.unid_escolar_id' => $escola_id,
+            //         'YEAR(Relatorios.data)' => $ano
+            //     ])
+            //     ->contain(['Usuarios'])
+            //     ->orderBy([
+            //         'Relatorios.id' => 'DESC'
+            //     ])
+            //     ->all();
+            $query = $this->Relatorios->find()
+                ->where([
+                    'Relatorios.unid_escolar_id' => $escola_id,
+                    'YEAR(Relatorios.data)' => $ano
+                ])
+                ->contain(['Usuarios'])
+                ->orderBy([
+                    'Relatorios.id' => 'DESC'
+                ]);
 
-            if (empty($relatorio_rascunho)) {
-                $relatorio_rascunho = 'Sem rascunho!';
+            // Se clicou em "Sem assinatura", filtra somente
+            // os relatórios que ainda possuem assinatura faltando
+            if ($somentePendentes) {
+                $query->where([
+                    'Relatorios.ic_rascunho !=' => 1,
+                    'OR' => [
+                        'Relatorios.id_ass_super IS' => null,
+                        'Relatorios.id_ass_dir IS' => null,
+                        'Relatorios.id_ass_sub IS' => null,
+                        'Relatorios.id_ass_assis IS' => null,
+                    ]
+                ]);
             }
-            $this->set(compact('relatorio_rascunho'));
-        }
 
-        $relatorios = $this->Relatorios->find()
-            ->where(['unid_escolar_id' => $escola_id, 'usuario_id' => $user->id, 'YEAR(data)' => $ano])
-            ->contain(['UnidEscolares'])->orderBy(['Relatorios.id' => 'DESC'])
-            ->toArray();
-
-        if (empty($relatorios_assin)) {
-            $relatorios_assin = 'Sem relatórios!';
-        }
-
-        if (empty($relatorios_s_assin)) {
-            $relatorios_s_assin = 'Sem relatórios!';
-        }
-        if (empty($relatorios)) {
-            $relatorios = 'Sem relatórios!';
+            $relatorios = $query->all();
         }
 
         $providencias = $this->Relatorios->Respostas->find()
@@ -1273,8 +1233,23 @@ class RelatoriosController extends AppController
             ->contain(['Relatorios', 'Perguntas'])
             ->all();
 
+        $relatoriosPendentes = $this->fetchTable('Relatorios')
+            ->find()
+            ->where([
+                'Relatorios.unid_escolar_id' => $escola->id,
+                'Relatorios.ic_rascunho !=' => 1,
+                'OR' => [
+                    'Relatorios.id_ass_super IS' => null,
+                    'Relatorios.id_ass_dir IS' => null,
+                    'Relatorios.id_ass_sub IS' => null,
+                    'Relatorios.id_ass_assis IS' => null,
+                ]
+            ])
+            ->count();
+
+        $this->set('relatoriosPendentes', $relatoriosPendentes);
         $this->set('pendencias', $providencias);
-        $this->set(compact('escola', 'ano', 'relatorios', 'relatorios_assin', 'relatorios_s_assin', 'escolaName'));
+        $this->set(compact('escola', 'ano', 'relatorios', 'somentePendentes'));
     }
 
     public function dashDiretor($id = null)

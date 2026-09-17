@@ -97,6 +97,7 @@ tr { background-color: white; }
 .text-dark-primary { color: var(--ex-dark-primary); }
 .border-dark-primary { border-color: var(--ex-dark-primary) !important; }
 .bg-dark-quaternary { background-color: var( --ex-dark-quaternary); }
+.bg-dark-warning { background-color: var( --ex-dark-warning); }
 
 /*
 .linha-principal > td > div:first-of-type { width:0.4em; padding: 2px 0; }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Model\Entity;
@@ -82,4 +83,22 @@ class Relatorio extends Entity
         'ocorrencia_relatorios' => true,
         'respostas' => true
     ];
+
+    protected function _getSituacao()
+    {
+        if ($this->ic_rascunho == 1) {
+            return 1 ;
+        }
+
+        if (
+            !empty($this->id_ass_super) &&
+            !empty($this->id_ass_dir) &&
+            !empty($this->id_ass_sub) &&
+            !empty($this->id_ass_assis)
+        ) {
+            return 2;
+        }
+
+        return 3;
+    }
 }

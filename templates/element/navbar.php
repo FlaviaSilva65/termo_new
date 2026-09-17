@@ -1,98 +1,202 @@
 <?php
-$url = [
+// Essa variável será excluída 
+$modelo = 1;
+
+$acaoAtual = $this->request->getParam('action');
+
+$urlInicio = [
     'plugin' => null,
     'controller' => 'Relatorios'
 ];
 
-// Essa variável será excluída 
-$modelo = 1;
 
-if (isset($identity) && $identity->tp_usuarios_id == 2 && $this->request->getParam('action') == 'dashEscolas' || ($this->request->getParam('action') == 'providencia')) {
+
+if (
+    isset($identity) && $identity->tp_usuarios_id == 2 && $this->request->getParam('action') == 'dashEscolas'
+    || ($this->request->getParam('action') == 'providencia')
+) {
     $urlPend = [
         'plugin' => null,
-        // 'controller' => 'Providencias',
-        'action' => 'providencia'
+        'controller' => 'Relatorios',
+        'action' => 'dashEscolas',
+        $escola->id,
+        '?' => [
+            'pendentes' => 1
+        ]
     ];
-    $urlPend[] = $escola->id;
 }
 
 if (isset($identity) && $identity->tp_usuarios_id == 2) {
 
-    $url['action'] = 'dashSupervisor';
-    $url[] = ($setor->setores_id ? $setor->setores_id : $identity->id);
+    $urlInicio['action'] = 'dashSupervisor';
+    $urlInicio[] = ($setor->setores_id ? $setor->setores_id : $identity->id);
 } elseif (isset($identity) && $identity->tp_usuarios_id == 4) {
 
-    $url['action'] = 'dashSubsecretaria';
+    $urlInicio['action'] = 'dashSubsecretaria';
 } elseif (isset($identity) && ($identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5)) {
 
-    $url['action'] = 'dashDiretorEscolas';
-    $url[] = $identity->id;
-
-    $urlPend = [
-        'plugin' => null,
-        // 'controller' => 'Providencias',
-        'action' => 'providencia'
-    ];
-    $urlPend[] = $escola->id;
+    $urlInicio['action'] = 'dashDiretorEscolas';
+    $urlInicio[] = $identity->id;
 } elseif (isset($identity) && ($identity->tp_usuarios_id == 6 || $identity->tp_usuarios_id == 9)) {
-    $url = [
+    $urlInicio = [
         'controller' => 'Usuarios',
         'action' => 'index'
     ];
 }
 ?>
+
+<!-- Calculando os relatorios em assinatura -->
+
+
 <div class="w-100 bg-primary text-white px-3">
     <div class="col-11 mx-auto d-flex justify-content-between">
         <div class="d-flex align-items-center">
             <?php
-            if (isset($relatorio) && $relatorio->ic_rascunho == 1) {
-                $opc = true;
-                $relatorio = $relatorio->termo_id;
-            } else {
-                $opc = false;
-                $relatorio = isset($relatorio) ? $relatorio->termo_id : '';
-            }
-            if (isset($escolaName)) {
-                $unidade = $escolaName->sigla . ' ' . $escolaName->nm_unid_escolar;
-            }
 
             if (isset($identity)) {
-
-                // pr($url);
 
                 echo
                 $this->Html->link(
                     '<i class="bi bi-house fs-4 me-2"></i><span class="fs-6">Início</span>',
-                    $url,
+                    $urlInicio,
                     ['class' => 'd-flex align-items-center py-0 me-4 px-1 btn btn-primary btn-sm', 'escape' => false]
-                ) .
-
-                    (
-                        ($modelo == 1 && $this->request->getParam('action') == 'manterPerguntas')
-                        ?   '<i class="bi bi-journal-text fs-4 text-white me-2"></i>
-                        <h6 class="mb-0 me-4">Termo de Supervisão - Nº ' . $relatorio . '</h6>
-                        <i class="bi bi-buildings me-2 fs-4"></i>
-                        <h6 class="mb-0 me-4">' . $unidade . '</h6>
-                        <h6 class="info-rounded-pill align-self-center ' . ($opc ? 'bg-warning text-dark' : 'bg-dark-quaternary') . ' small mb-0 d-flex align-items-center">' .
-                        (
-                            $opc
-                            ? '<span class="info-s-pill me-1"><i class="bi bi-pencil-square"></i></span>Em preenchimento'
-                            : '<span class="info-s-pill me-1"><i class="bi bi-check-circle"></i></span>Assinado em ' . date('d/m/Y')
-                        ) .
-                        '</h6>'
-                        : (
-                            $modelo == 'a'
-                            ? ' '
-                            : ''
-                        )
-                    );
+                );
             } ?>
+            <?php if ($this->request->getParam('action') === 'dashEscolas' && isset($escola)): ?>
+                <?php
+                $urlNovoRelatorio = [
+                    'plugin' => null,
+                    'controller' => 'Relatorios',
+                    'action' => 'manterPerguntas',
+                    1,
+                    $escola->id
+                ];
+                ?>
+
+                <!-- NOVO TERMO / RELATÓRIO -->
+                <?= $this->Html->link(
+                    '<i class="bi bi-file-earmark-plus fs-4 me-2"></i>
+                        <span class="fs-6">Novo Termo</span>',
+                    $urlNovoRelatorio,
+                    [
+                        'class' => 'd-flex align-items-center py-0 me-3 px-1 btn btn-primary btn-sm',
+                        'escape' => false
+                    ]
+                ) ?>
+
+            <?php endif; ?>
+
+            <?php if (($acaoAtual === 'manterPerguntas'  && isset($relatorio)) || $acaoAtual === 'dashEscolas'): ?>
+                <?php
+                $termo = $relatorio->termo_id ?? null;
+                // Situação
+                $emPreenchimento = isset($relatorio) ? $relatorio->ic_rascunho == 1 : false;
+
+                // Escola
+                if (isset($escolaName)) {
+                    $nomeEscola = $escolaName->sigla . ' ' . $escolaName->nm_unid_escolar;
+                } elseif (isset($escola)) {
+                    $nomeEscola = $escola->sigla . ' ' . $escola->nm_unid_escolar;
+                } else {
+                    $nomeEscola = '';
+                }
+                ?>
+
+                <!-- TERMO -->
+                <?php if ($termo): ?>
+                    <div class="d-flex align-items-center me-4">
+                        <i class="bi bi-journal-text fs-4 me-2"></i>
+
+                        <h6 class="mb-0">
+                            Termo de Supervisão - Nº <?= sprintf('%03d', $termo) ?>
+                        </h6>
+                    </div>
+                <?php endif; ?>
+
+                <!-- ESCOLA -->
+                <?php if ($nomeEscola): ?>
+
+                    <div class="d-flex align-items-center me-4">
+                        <i class="bi bi-buildings me-2 fs-4"></i>
+
+                        <h6 class="mb-0">
+                            <?= h($nomeEscola) ?>
+                        </h6>
+                    </div>
+
+                <?php endif; ?>
+                <!-- PENDÊNCIAS (só na tela dashEscolas, logo após o nome da escola) -->
+                <?php if ($this->request->getParam('action') === 'dashEscolas' && isset($escola)): ?>
+
+                    <!-- Colocar uma URL para filtrar somente os termos Pendentes de Assinatura -->
+                    <?= $this->Html->link(
+                        '<h6 class="info-rounded-pill align-self-center bg-dark-warning mb-0 d-flex align-items-center me-3">
+                        <span class="info-s-pill me-1">
+                            <i class="bi bi-pencil-square"></i>
+                        </span>
+                        Sem assinatura: ' . (isset($relatoriosPendentes) ? $relatoriosPendentes : 0) . '</h6>',
+                        $urlPend,
+                        [
+                            'class' => 'd-flex align-items-center py-0 px-1 btn btn-primary btn-sm',
+                            'escape' => false,
+                            'title' => 'Termos pendentes de assinatura'
+                        ]
+                    ) ?>
+                <?php endif; ?>
+
+                <!-- PENDÊNCIAS (Aguardando Providências -->
+                <?php if ($this->request->getParam('action') === 'dashEscolas' && isset($pendencias)): ?>
+                    <?php
+                    $urlPendencias = [
+                        'plugin' => null,
+                        'controller' => 'Relatorios',
+                        'action' => 'pendencias',
+                        $escola->id
+                    ];
+                    ?>
+
+                    <?= $this->Html->link(
+                        '<h6 class="info-rounded-pill align-self-center bg-danger mb-0 d-flex align-items-center" style="letter-spacing: 0.10rem;">
+                        <span class="info-s-pill me-1">
+                            <i class="bi bi-check-square"></i>
+                        </span>
+                        Pendências: ' . count($pendencias) . '</h6>',
+                        $urlPendencias,
+                        [
+                            'class' => 'd-flex align-items-center py-0 px-1 btn btn-primary btn-sm',
+                            'escape' => false,
+                            'title' => 'Termos com pendências apontadas'
+                        ]
+                    ) ?>
+
+                <?php endif; ?>
+
+                <!-- SITUAÇÃO -->
+                <?php if (isset($relatorio)): ?>
+                    <h6 class="info-rounded-pill align-self-center
+                        <?= $emPreenchimento ? 'bg-warning text-dark' : 'bg-dark-quaternary' ?>
+                        small mb-0 d-flex align-items-center">
+
+                        <?php if ($emPreenchimento): ?>
+
+                            <span class="info-s-pill me-1">
+                                <i class="bi bi-pencil-square"></i>
+                            </span>
+                            Em preenchimento
+                        <?php else: ?>
+                            <span class="info-s-pill me-1">
+                                <i class="bi bi-check-circle"></i>
+                            </span>
+                            Finalizado
+                        <?php endif; ?>
+                    </h6>
+                <?php endif; ?>
+            <?php endif; ?>
 
             <?php if (
                 isset($identity) &&
                 ($identity->tp_usuarios_id == 6 || $identity->tp_usuarios_id == 9)
             ): ?>
-
                 <?php
                 $urlUsuarios = [
                     'controller' => 'Usuarios',
@@ -101,7 +205,6 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                 ?>
 
                 <div class="dropdown pushable-ignore order-2">
-
                     <button
                         type="button"
                         class="btn btn-primary btn-sm d-flex align-items-center py-0 px-1"
@@ -122,7 +225,7 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
 
                         <?= $this->Html->link(
                             '<i class="bi bi-people me-2"></i>
-                <span>Cadastrar</span>',
+                                <span>Cadastrar</span>',
                             $urlUsuarios,
                             [
                                 'class' => 'dropdown-item d-flex align-items-center',
@@ -148,15 +251,6 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                 ['class' => 'd-flex align-items-center btn btn-primary btn-sm py-0', 'escape' => false, 'title' => 'Sair']
             );
             ?>
-            <?php // } else { 
-            ?>
-            <?php //$this->Form->postLink(
-            //     '<i class="bi bi-circle fs-4 me-2"></i><span class="fs-6">Logar</span>',
-            //     ['controller' => 'Usuarios', 'action' => 'login'],
-            //     ['class' => 'd-flex align-items-center btn btn-primary btn-sm py-0', 'escape' => false, 'title' => 'Entrar']
-            // );
-            ?>
-
         <?php } ?>
 
     </div>
