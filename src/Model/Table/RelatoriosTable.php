@@ -108,7 +108,7 @@ class RelatoriosTable extends Table
 
         $validator
             ->date('data')
-            ->requirePresence('data', 'create')
+            // ->requirePresence('data', 'create')
             ->allowEmptyString('data');
 
         $validator

@@ -76,14 +76,18 @@ class RelatoriosController extends AppController
 
         $relatorio = $this->Relatorios->newEmptyEntity();
 
+        $forcarNovo = (bool)$this->request->getQuery('novo');
+
         if ($id) {
             $relatorio = $this->Relatorios->get($id);
         } else {
+
             $relatorioExistente = $this->Relatorios->find()
                 ->where([
                     'usuario_id' => $identity->id,
                     'unid_escolar_id' => $escola_id,
-                    'YEAR(data)' => date('Y'),
+                    'YEAR(created)' => date('Y'),
+                    'MONTH(created)' => date('m'),
                     'ic_rascunho' => 1, // ainda em rascunho
                 ])
                 ->orderByDesc('id')
@@ -94,7 +98,7 @@ class RelatoriosController extends AppController
                 return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorioExistente->id]);
             }
 
-            $relatorio_ano = $this->Relatorios->find()->where(['unid_escolar_id' => $escola_id, 'YEAR(data)' => date('Y')])->all();
+            $relatorio_ano = $this->Relatorios->find()->where(['unid_escolar_id' => $escola_id, 'YEAR(created)' => date('Y')])->all();
             $ultimo_relatorio = $relatorio_ano->last();
 
             $termo_id = $ultimo_relatorio ? $ultimo_relatorio->termo_id + 1 : 1;
@@ -108,9 +112,10 @@ class RelatoriosController extends AppController
             ]);
 
             $this->Relatorios->save($relatorio);
+            // dd($relatorio);
             return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorio->id]);
         }
-
+        // dd($relatorio);
         if ($relatorio->responsavel_id) {
 
             $usuarios_lista = collection($Usuarios->find()->where(['id' => $relatorio->responsavel_id])->all())
@@ -129,6 +134,7 @@ class RelatoriosController extends AppController
 
         // ----- Se estiver em modo pendências, calcula quais dimensões ainda têm pendência -----
         $dimensoesComPendencia = [];
+
         if ($somentePendencias) {
             $perguntaIdsPendentesGeral = $Providencia->find()
                 ->select(['pergunta_id'])
@@ -167,6 +173,10 @@ class RelatoriosController extends AppController
                 }
             }
         }
+
+        \Cake\Log\Log::debug('Total pendencias geral: ' . count($perguntaIdsPendentesGeral));
+        \Cake\Log\Log::debug('Dimensoes com pendencia: ' . json_encode($dimensoesComPendencia));
+        \Cake\Log\Log::debug('Dimensao atual: ' . $dimensao);
 
         if ($this->request->is(['post', 'put'])) {
             $data = $this->request->getData();
@@ -756,7 +766,7 @@ class RelatoriosController extends AppController
 
     public function dashSupervisor($id)
     {
-        $id = 162;
+        // $id = 162;s
         $this->Authorization->skipAuthorization();
         $identity = $this->request->getAttribute('identity');
         $providencia = $this->fetchTable('Providencias');
@@ -801,6 +811,7 @@ class RelatoriosController extends AppController
                 ->where([
                     'Providencias.status' => 0,
                     'Relatorios.unid_escolar_id IN' => $escolasIds,
+                    'Relatorios.ic_rascunho' => 0
                 ])
                 ->groupBy('Relatorios.unid_escolar_id')
                 ->enableAutoFields(false)
@@ -1681,10 +1692,16 @@ class RelatoriosController extends AppController
 
         $pendenciasRaw = $Providencias->find()
             ->where([
-                'unid_escolar_id' => $escola_id,
-                'status' => 0,
+                'Providencias.unid_escolar_id' => $escola_id,
+                'Providencias.status' => 0
             ])
-            ->orderByDesc('created')
+            ->matching('Relatorios', function ($q) {
+                return $q->where([
+                    'Relatorios.ic_rascunho' => 0
+                ]);
+            })
+            ->contain(['Relatorios'])
+            ->orderByDesc('Providencias.created')
             ->all();
 
         if ($pendenciasRaw->isEmpty()) {
@@ -1694,28 +1711,28 @@ class RelatoriosController extends AppController
 
         $relatorioIds = array_unique($pendenciasRaw->extract('relatorio_id')->toArray());
 
-        if (count($relatorioIds) === 1) {
-            $relatorioId = $relatorioIds[0];
+        // if (count($relatorioIds) === 1) {
+        // $relatorioId = $relatorioIds[0];
 
-            $perguntaIdsPendentes = $pendenciasRaw
-                ->filter(fn($item) => $item->relatorio_id == $relatorioId)
-                ->extract('pergunta_id')
-                ->toArray();
+        // $perguntaIdsPendentes = $pendenciasRaw
+        //     ->filter(fn($item) => $item->relatorio_id == $relatorioId)
+        //     ->extract('pergunta_id')
+        //     ->toArray();
 
-            $primeiraDimensao = $Perguntas->find()
-                ->select(['dimensao'])
-                ->where(['id IN' => $perguntaIdsPendentes])
-                ->orderByAsc('dimensao')
-                ->first();
+        // $primeiraDimensao = $Perguntas->find()
+        //     ->select(['dimensao'])
+        //     ->where(['id IN' => $perguntaIdsPendentes])
+        //     ->orderByAsc('dimensao')
+        //     ->first();
 
-            return $this->redirect([
-                'action' => 'manterPerguntas',
-                $primeiraDimensao->dimensao ?? 1,
-                $escola_id,
-                $relatorioId,
-                '?' => ['pendencias' => 1],
-            ]);
-        }
+        //     return $this->redirect([
+        //         'action' => 'manterPerguntas',
+        //         $primeiraDimensao->dimensao ?? 1,
+        //         $escola_id,
+        //         $relatorioId,
+        //         '?' => ['pendencias' => 1],
+        //     ]);
+        // }
 
         $perguntaIds = $pendenciasRaw->extract('pergunta_id')->toArray();
 
@@ -1726,7 +1743,7 @@ class RelatoriosController extends AppController
             ->toArray();
 
         $relatorios = $Relatorios->find()
-            ->where(['id IN' => $relatorioIds])
+            ->where(['id IN' => $relatorioIds, 'ic_rascunho' => 0])
             ->all()
             ->indexBy('id')
             ->toArray();

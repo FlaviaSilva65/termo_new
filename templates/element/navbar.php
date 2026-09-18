@@ -69,7 +69,8 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                     'controller' => 'Relatorios',
                     'action' => 'manterPerguntas',
                     1,
-                    $escola->id
+                    $escola->id,
+                    '?' => ['novo' => 1],
                 ];
                 ?>
 
