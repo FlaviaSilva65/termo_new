@@ -13,8 +13,6 @@
                 </div>
 
                 <div class="col-10 border border-info rounded-3">
-                    <!-- <?php $this->Form->control('cd_cpf', ['id' => 'login-input', 'class' => 'cpf', 'label' => false]) ?> -->
-                    <!-- <?php $this->Form->control('cd_rf', ['type' => 'hidden', 'label' => false]) ?> -->
                     <?= $this->Form->control('username', [
                         'id' => 'login-input',
                         'label' => false,

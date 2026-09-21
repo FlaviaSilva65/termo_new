@@ -71,40 +71,40 @@ class AppController extends Controller
 
             $funcao = $tp_usuarios->get($usuario->tp_usuarios_id);
 
-            $setor = $usuario_unid_escolares->find()->where(['usuario_id' => $usuario->id ?: 0])->all()->last();
-            $usuario_lists = $this->fetchTable('Usuarios');
+            // $setor = $usuario_unid_escolares->find()->where(['usuario_id' => $usuario->id ?: 0])->all()->last();
+            // $usuario_lists = $this->fetchTable('Usuarios');
 
             $escola_usuarios = [];
 
-            if ($usuario->tp_usuarios_id == 2) {
-                // $setor_supervisor = TableRegistry::getTableLocator()->get('SetorSupervisores');
-                $setor_supervisor = $this->fetchTable('SetorSupervisores');
-                // $unid_escolares_vw = TableRegistry::getTableLocator()->get('UnidEscolaresVw');
-                // $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
-                $setores = $setor_supervisor->find()->where(['usuario_id' => $usuario->id])->all();
+            // if ($usuario->tp_usuarios_id == 2) {
+            //     // $setor_supervisor = TableRegistry::getTableLocator()->get('SetorSupervisores');
+            //     $setor_supervisor = $this->fetchTable('SetorSupervisores');
+            //     // $unid_escolares_vw = TableRegistry::getTableLocator()->get('UnidEscolaresVw');
+            //     // $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
+            //     $setores = $setor_supervisor->find()->where(['usuario_id' => $usuario->id])->all();
 
-                if (count($setores) === 0) {
-                    // $this->Authentication->logout();
+            //     if (count($setores) === 0) {
+            //         // $this->Authentication->logout();
 
-                    // $this->Flash->error('Supervisor não cadastrado.');
-                    $this->redirect($this->referer());
-                } else {
+            //         // $this->Flash->error('Supervisor não cadastrado.');
+            //         $this->redirect($this->referer());
+            //     } else {
 
 
-                    $setor_id = $setores->last();
+            //         $setor_id = $setores->last();
 
-                    $escolas = $unid_escolares->find('list', keyField: 'id', valueField: 'nm_unid_escolar')
-                        ->where(['setores_id' => $setor_id->setores_id, 'ativo is' => null])
-                        ->orderBy(['nm_unid_escolar' => 'ASC'])
-                        // ->orderBy(function ($exp, $query){
-                        //     return $exp->add("REPLACE(nm_unid_escolar, 'E.M. ', '') ASC");
-                        // })
-                        // (['nm_unid_escolar' => 'ASC'])
-                        ->toArray();
+            //         $escolas = $unid_escolares->find('list', keyField: 'id', valueField: 'nm_unid_escolar')
+            //             ->where(['setores_id' => $setor_id->setores_id, 'ativo is' => null])
+            //             ->orderBy(['nm_unid_escolar' => 'ASC'])
+            //             // ->orderBy(function ($exp, $query){
+            //             //     return $exp->add("REPLACE(nm_unid_escolar, 'E.M. ', '') ASC");
+            //             // })
+            //             // (['nm_unid_escolar' => 'ASC'])
+            //             ->toArray();
 
-                    $this->set(compact('escolas'));
-                }
-            } elseif ($usuario->tp_usuarios_id == 1 || $usuario->tp_usuarios_id == 5) {
+            //         $this->set(compact('escolas'));
+            //     }
+            if ($usuario->tp_usuarios_id == 2 || $usuario->tp_usuarios_id == 1 || $usuario->tp_usuarios_id == 5) {
 
                 $usuario_unidades = $usuario_unid_escolares->find()->where(['usuario_id' => $usuario->id])->all();
 
@@ -121,17 +121,17 @@ class AppController extends Controller
                     })->orderBy(['nm_unid_escolar' => 'ASC'])
                     ->toArray();
                 $this->set(compact('escolas'));
-            } elseif ($usuario->tp_usuarios_id == 9) {
+                // } elseif ($usuario->tp_usuarios_id == 9) {
 
-                $supervisores = $usuario_lists->find('list', keyField: 'id', valueField: 'nm_usuario')
-                    ->where(['tp_usuarios_id' => 2, 'ic_ativo' => 1])
-                    ->toArray();
+                //     $supervisores = $usuario_lists->find('list', keyField: 'id', valueField: 'nm_usuario')
+                //         ->where(['tp_usuarios_id' => 2, 'ic_ativo' => 1])
+                //         ->toArray();
 
-                $this->set(compact('supervisores'));
+                //     $this->set(compact('supervisores'));
             }
 
             // $this->set(compact('escolas'));
-            $this->set(compact('funcao', 'setor'));
+            $this->set(compact('funcao'));
         };
 
         $this->set('identity', $identity);
@@ -200,15 +200,6 @@ class AppController extends Controller
             $usuarioAtual
         );
 
-        // debug([
-        //     'authentication' => $this->Authentication->getIdentity(),
-        //     'session_impersonate' => $this->request->getSession()->read('Impersonate'),
-        //     'request_identity' => $this->request->getAttribute('identity'),
-        // ]);
-        // die;
-
-        // debug($this->request->getAttribute('identity'));
-        // die;
     }
 
     public function isAuthorized($identity)

@@ -130,7 +130,10 @@ class RelatoriosController extends AppController
         $this->Authorization->authorize($relatorio, 'manterPerguntas');
 
         //Monta o set da seção do termo e garante o nº de dimensões de
+        // if (!$somentePendencias) {
         $dimensao = $this->secoesTermo($dimensao, $queryPerguntas, $relatorio->id);
+        // }
+
 
         // ----- Se estiver em modo pendências, calcula quais dimensões ainda têm pendência -----
         $dimensoesComPendencia = [];
@@ -173,10 +176,6 @@ class RelatoriosController extends AppController
                 }
             }
         }
-
-        \Cake\Log\Log::debug('Total pendencias geral: ' . count($perguntaIdsPendentesGeral));
-        \Cake\Log\Log::debug('Dimensoes com pendencia: ' . json_encode($dimensoesComPendencia));
-        \Cake\Log\Log::debug('Dimensao atual: ' . $dimensao);
 
         if ($this->request->is(['post', 'put'])) {
             $data = $this->request->getData();
@@ -879,6 +878,9 @@ class RelatoriosController extends AppController
             $relatorio->termo_id = $item->termo_id;
             $relatorio->data = $item->data;
             $relatorio->pendencias = $item->pendencias;
+            $relatorio->id_ass_dir = $item->id_ass_dir;
+            $relatorio->id_ass_assis = $item->id_ass_assis;
+            $relatorio->id_ass_sub = $item->id_ass_sub;
 
             // debug($relatorio);
             // die;
@@ -1485,6 +1487,103 @@ class RelatoriosController extends AppController
         $this->set(compact('relatorio', 'list_funcao', 'escola_users', 'escola', 'list_manutencao', 'list_legislacao', 'ocorrenciasRelacionadasIds'));
     }
 
+    public function visualizarPdf($id)
+    {
+        $this->Authorization->skipAuthorization();
+
+        $Dimensoes = $this->fetchTable('Dimensao');
+        $queryPerguntas = $this->fetchTable('Perguntas');
+        $Respostas = $this->fetchTable('Respostas');
+        $Ocorrencias = $this->fetchTable('Ocorrencias');
+        $OcorrenciaRelatorios = $this->fetchTable('OcorrenciaRelatorios');
+        $UnidEscolares = $this->fetchTable('UnidEscolares');
+        $Usuarios = $this->fetchTable('Usuarios');
+
+        $relatorio = $this->Relatorios->get($id, contain: ['Usuarios']);
+
+        $escolaName = $UnidEscolares->find()
+            ->select(['id', 'sigla', 'nm_unid_escolar'])
+            ->where(['id' => $relatorio->unid_escolar_id])
+            ->first();
+
+        // Todas as perguntas criadas até a data do relatório, ordenadas por dimensão e ordem
+        $perguntas = $queryPerguntas->find()
+            ->select(['id', 'dimensao', 'ordem', 'descricao', 'tipo', 'opcoes', 'created'])
+            ->where(['created <' => $relatorio->created])
+            ->orderByAsc('dimensao')
+            ->orderByAsc('ordem')
+            ->all();
+
+        $perguntaIds = $perguntas->extract('id')->toArray();
+
+        // Respostas salvas, indexadas por pergunta_id
+        $respostasSalvas = $Respostas->find()
+            ->where(['relatorio_id' => $id, 'pergunta_id IN' => $perguntaIds])
+            ->all()
+            ->indexBy('pergunta_id')
+            ->toArray();
+
+        // Ocorrências marcadas (para perguntas do tipo checkbox)
+        $ocorrenciaIdsSalvas = $OcorrenciaRelatorios->find()
+            ->where(['relatorio_id' => $id])
+            ->all()
+            ->extract('ocorrencia_id')
+            ->toArray();
+
+        // Monta ocorrências disponíveis por pergunta (checkbox), com flag "marcado"
+        $ocorrenciasPorPergunta = [];
+        foreach ($perguntas as $p) {
+            if ($p->tipo === 'checkbox') {
+                $ocorrenciasPorPergunta[$p->id] = $Ocorrencias->find()
+                    ->select(['id', 'nm_tp_ocorrencia'])
+                    ->where(['pergunta_id' => $p->id])
+                    ->orderBy(['CASE WHEN nm_tp_ocorrencia = "Outros" THEN 1 ELSE 0 END' => 'ASC', 'nm_tp_ocorrencia' => 'ASC'])
+                    ->all();
+            }
+        }
+
+        // Nomes das dimensões
+        $dimensoesDb = $Dimensoes->find()
+            ->select(['id', 'titCompleto'])
+            ->orderByAsc('id')
+            ->all()
+            ->indexBy('id')
+            ->toArray();
+
+        // Agrupa as perguntas por dimensão, já na ordem correta (dimensao asc, ordem asc)
+        $perguntasPorDimensao = [];
+        foreach ($perguntas as $p) {
+            $perguntasPorDimensao[$p->dimensao][] = $p;
+        }
+        ksort($perguntasPorDimensao); // garante que as dimensões fiquem em ordem crescente
+
+        // Nome do usuário responsável (pergunta 35)
+        $responsavelNome = null;
+        if ($relatorio->responsavel_id) {
+            $responsavel = $Usuarios->find()
+                ->select(['nm_usuario'])
+                ->where(['id' => $relatorio->responsavel_id])
+                ->first();
+            $responsavelNome = $responsavel->nm_usuario ?? null;
+        }
+
+        $this->set([
+            'relatorio' => $relatorio,
+            'escolaName' => $escolaName,
+            'dimensoesDb' => $dimensoesDb,
+            'perguntasPorDimensao' => $perguntasPorDimensao,
+            'respostasSalvas' => $respostasSalvas,
+            'ocorrenciasPorPergunta' => $ocorrenciasPorPergunta,
+            'ocorrenciaIdsSalvas' => $ocorrenciaIdsSalvas,
+            'responsavelNome' => $responsavelNome,
+        ]);
+
+        // Layout mais enxuto, sem menu/navegação, próprio para impressão
+        $this->viewBuilder()->setLayout('print');
+    }
+
+
+
     public function sign($id)
     {
         $this->viewBuilder()->setLayout('print');
@@ -1494,7 +1593,7 @@ class RelatoriosController extends AppController
         $relatorio = $this->Relatorios->get($id, contain: [
             'UnidEscolares',
             'Respostas',
-            'Funcoes',
+            // 'Funcoes',
             'OcorrenciaRelatorios' => ['Ocorrencias'],
             'Usuarios' => ['UsuarioUnidEscolares']
         ]);
@@ -1530,7 +1629,7 @@ class RelatoriosController extends AppController
         }
 
         try {
-            $this->Authorization->authorize($relatorio);
+            $this->Authorization->authorize($relatorio, 'visualizarPdf');
         } catch (ForbiddenException $e) {
             $this->Flash->error('Você não possui permissão para acessar este documento.');
 
@@ -1546,7 +1645,9 @@ class RelatoriosController extends AppController
         }
 
         $funcoes = $this->fetchTable('Funcoes');
-        $perguntas = $this->fetchTable('Perguntas')->find()->orderBy(['codigo' => 'ASC'])->all();
+        $perguntas = $this->fetchTable('Perguntas')->find()->orderBy(['ordem' => 'ASC'])->all();
+        // ->find()->orderBy(['codigo' => 'ASC'])
+        // ->all();
 
         $respostasMap = [];
         foreach ($relatorio->respostas as $resposta) {
@@ -1554,8 +1655,8 @@ class RelatoriosController extends AppController
         }
 
         $list_funcao = $funcoes->find('list', keyField: 'id', valueField: 'nm_funcao')->toArray();
-        $list_manutencao = $this->Relatorios->OcorrenciaRelatorios->Ocorrencias->find()->where(['categorias_id' => 3])->toArray();
-        $list_legislacao = $this->Relatorios->OcorrenciaRelatorios->Ocorrencias->find()->where(['categorias_id' => 4])->toArray();
+        $list_manutencao = $this->Relatorios->OcorrenciaRelatorios->Ocorrencias->find()->where(['pergunta_id' => 16])->toArray();
+        $list_legislacao = $this->Relatorios->OcorrenciaRelatorios->Ocorrencias->find()->where(['pergunta_id' => 18])->toArray();
 
         $this->set(compact('relatorio', 'perguntas', 'respostasMap', 'list_funcao', 'list_manutencao', 'list_legislacao', 'ocorrenciasRelacionadasIds'));
     }
@@ -1766,14 +1867,127 @@ class RelatoriosController extends AppController
         }
 
         $pendenciasPorRelatorio = [];
+        $menorDimensaoPorRelatorio = [];
+
         foreach ($pendencias as $p) {
             $pendenciasPorRelatorio[$p['relatorio_id']][] = $p;
+        }
+
+        if (
+            $p['dimensao'] !== null &&
+            (!isset($menorDimensaoPorRelatorio[$p['relatorio_id']]) || $p['dimensao'] < $menorDimensaoPorRelatorio[$p['relatorio_id']])
+        ) {
+            $menorDimensaoPorRelatorio[$p['relatorio_id']] = $p['dimensao'];
         }
 
         $this->set([
             'escolaName' => $escolaName,
             'escola_id' => $escola_id,
-            'pendenciasPorRelatorio' => $pendenciasPorRelatorio
+            'pendenciasPorRelatorio' => $pendenciasPorRelatorio,
+            'menorDimensaoPorRelatorio' => $menorDimensaoPorRelatorio,
         ]);
+    }
+
+    public function atualizarStatusResposta()
+    {
+        $this->Authorization->skipAuthorization();
+
+        $this->request->allowMethod(['post']);
+        $this->autoRender = false;
+
+        $relatorioId = $this->request->getData('relatorio_id');
+        $perguntaId = $this->request->getData('pergunta_id');
+        $status = (int)$this->request->getData('status'); // 1 = resolvida, 0 = pendente
+
+        $Respostas = $this->fetchTable('Respostas');
+        $Providencia = $this->fetchTable('Providencias');
+
+        $entity = $Respostas->find()
+            ->where(['Respostas.relatorio_id' => $relatorioId, 'Respostas.pergunta_id' => $perguntaId])
+            ->first();
+
+        if (!$entity) {
+            return $this->response->withStatus(404)
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Resposta não encontrada.'
+                ]));
+        }
+
+        $entity->status = $status;
+
+        if (!$Respostas->save($entity)) {
+            return $this->response
+                ->withStatus(500)
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Não foi possível salvar o status da resposta.'
+                ]));
+        }
+
+        if ($status == 0) {
+            // Reaberta como pendência
+            $existente = $Providencia->find()
+                ->where([
+                    'Providencia.relatorio_id' => $relatorioId,
+                    'Providencia.pergunta_id' => $perguntaId
+                ])
+                ->first();
+
+            $identity = $this->Authentication->getIdentity();
+
+            $relatorio = $this->Relatorios->find()
+                ->where(['id' => $relatorioId])
+                ->first();
+
+            if (!$relatorio) {
+                return $this->response
+                    ->withStatus(404)
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Relatório não encontrado.'
+                    ]));
+            }
+
+            $providenciaEntity = $existente ?: $Providencia->newEntity([
+                'relatorio_id' => $relatorioId,
+                'pergunta_id' => $perguntaId,
+                'usuario_id' => $identity->id,
+            ]);
+            $providenciaEntity->unid_escolar_id = $relatorio->unid_escolar_id;
+            $providenciaEntity->status = 0;
+            $providenciaEntity->resposta_id = $entity->id;
+
+            if (!$Providencia->save($providenciaEntity)) {
+                return $this->response
+                    ->withStatus(500)
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Não foi possível salvar a providência.',
+                        'errors' => $providenciaEntity->getErrors()
+                    ]));
+            }
+        } else {
+            // Marca como resolvida
+            $Providencia->updateAll(
+                ['status' => 1],
+                [
+                    'relatorio_id' => $relatorioId,
+                    'pergunta_id' => $perguntaId,
+                    'status' => 0
+                ]
+            );
+        }
+
+        return $this->response
+            ->withType('application/json')
+            ->withStringBody(json_encode([
+                'success' => true,
+                'status' => $status
+            ]));
     }
 }

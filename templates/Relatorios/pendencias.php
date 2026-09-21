@@ -49,7 +49,7 @@
                     '<i class="bi bi-eye-fill me-1"></i>Ver Pendências',
                     [
                         'action' => 'manterPerguntas',
-                        $itens[0]['dimensao'],
+                        $menorDimensaoPorRelatorio[$relatorioId] ?? 1,
                         $escola_id,
                         $relatorioId,
                         '?' => ['pendencias' => 1],

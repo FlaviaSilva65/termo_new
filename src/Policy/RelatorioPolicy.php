@@ -98,6 +98,14 @@ class RelatorioPolicy
         return false;
     }
 
+    public function canVisualizarPdf(IdentityInterface $identity, Relatorio $relatorio)
+    {
+        if ($identity) {
+            return true;
+        }
+        return false;
+    }
+
     public function canUndersign(IdentityInterface $identity, Relatorio $relatorio)
     {
         // $diretor = $identity->id == $relatorio->usuario_id;

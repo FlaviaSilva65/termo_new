@@ -1,4 +1,12 @@
+<?php if ($somentePendencias) { ?>
+    <div class="col-12 col-lg-11 d-flex mx-auto mt-2 justify-content-center">
+        <h6 class="badge rounded-pill bg-danger-subtle text-danger px-5 py-2">
+            ACOMPANHAMENTO DE PENDÊNCIAS.
+        </h6>
+    </div>
+<?php } ?>
 <div class="col-12 col-lg-11 d-flex mx-auto">
+
     <?=
     $this->element('secoes_termo') .
         '<div class="w-100 p-0 p-lg-2">' .
@@ -49,7 +57,7 @@
                 <?php else: ?>
                     <?= $this->Html->link(
                         '<i class="bi bi-check-circle me-2"></i>Finalizar pendências',
-                        ['action' => 'dash-supervisor'],
+                        ['action' => 'dash-supervisor', $identity->id],
                         ['class' => 'btn btn-success btn-sm btn-e-pill shadow', 'escape' => false]
                     ) ?>
                 <?php endif; ?>
@@ -59,6 +67,7 @@
 </div>
 <script>
     const somentePendencias = <?= $somentePendencias ? 'true' : 'false' ?>;
+    const relatorioId = <?= (int)$relatorio->id ?>;
 
     // Radio
     function atualizaResposta(radio) {
@@ -107,20 +116,65 @@
             const perguntaId = this.dataset.perguntaId;
             const hidden = document.querySelector(`input[name="respostas[${perguntaId}][status]"]`);
             const novoStatus = hidden.value == '1' ? '0' : '1';
-            hidden.value = novoStatus;
 
             const icon = this.querySelector('i');
             const span = this.querySelector('span');
+            const btnEl = this;
 
-            if (novoStatus === '1') {
-                this.classList.replace('btn-warning', 'btn-success');
-                icon.classList.replace('bi-exclamation-circle', 'bi-check-circle');
-                span.innerHTML = somentePendencias ? 'Resolvido<br>Acompanhamento' : 'Requerido<br>Acompanhamento';
-            } else {
-                this.classList.replace('btn-success', 'btn-warning');
-                icon.classList.replace('bi-check-circle', 'bi-exclamation-circle');
-                span.innerHTML = 'Requer<br>Acompanhamento';
-            }
+            btnEl.disabled = true; // evita clique duplo durante o request
+
+            const csrfToken = document.querySelector('input[name="_csrfToken"]')?.value;
+
+            fetch('/termo/relatorios/atualizarStatusResposta', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new URLSearchParams({
+                        relatorio_id: relatorioId,
+                        pergunta_id: perguntaId,
+                        status: novoStatus,
+                        _csrfToken: csrfToken || '',
+                    }),
+                })
+                .then(async res => {
+                    const texto = await res.text();
+
+                    console.log('Status HTTP:', res.status);
+                    console.log('Resposta do servidor:', texto);
+
+                    if (!res.ok) {
+                        throw new Error('HTTP ' + res.status + ': ' + texto);
+                    }
+
+                    return JSON.parse(texto);
+                })
+                .then(data => {
+                    if (!data.success) {
+                        alert('Não foi possível atualizar o status. Tente novamente.');
+                        return;
+                    }
+
+                    hidden.value = novoStatus;
+
+                    if (novoStatus === '1') {
+                        btnEl.classList.replace('btn-warning', 'btn-success');
+                        icon.classList.replace('bi-exclamation-circle', 'bi-check-circle');
+                        span.innerHTML = somentePendencias ? 'Resolvido<br>Acompanhamento' : 'Requerido<br>Acompanhamento';
+                    } else {
+                        btnEl.classList.replace('btn-success', 'btn-warning');
+                        icon.classList.replace('bi-check-circle', 'bi-exclamation-circle');
+                        span.innerHTML = 'Requer<br>Acompanhamento';
+                    }
+                })
+                .catch(err => {
+                    console.error('Erro ao atualizar status:', err);
+                    alert('Erro de conexão ao atualizar status.');
+                })
+                .finally(() => {
+                    btnEl.disabled = false;
+                });
         });
     });
     document.addEventListener('DOMContentLoaded', function() {

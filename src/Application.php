@@ -106,7 +106,7 @@ class Application extends BaseApplication implements
             // available as array through $request->getData()
             // https://book.cakephp.org/5/en/controllers/middleware.html#body-parser-middleware
             ->add(new BodyParserMiddleware())
-            ->add(new NormalizeLoginMiddleware())
+            // ->add(new NormalizeLoginMiddleware())
             ->add(new AuthenticationMiddleware($this))
 
             ->add(new AuthorizationMiddleware($this))
@@ -131,10 +131,7 @@ class Application extends BaseApplication implements
 
     public function getAuthenticationService(ServerRequestInterface $request): AuthenticationServiceInterface
     {
-        $service = new AuthenticationService();
-
-        // Define where users should be redirected to when they are not authenticated
-        $service->setConfig([
+        $service = new AuthenticationService([
             'unauthenticatedRedirect' => Router::url([
                 'prefix' => false,
                 'plugin' => null,
@@ -143,20 +140,6 @@ class Application extends BaseApplication implements
             ]),
             'queryParam' => 'redirect',
         ]);
-
-
-        /** 
-         * COMENTADO, PARA VER SE FUNCIONA O LOGIN PELO CPF E RF
-         */
-
-        // $fields = [
-        //     // AbstractIdentifier::CREDENTIAL_USERNAME => ['cd_cpf', 'cd_rf'],
-        //     AbstractIdentifier::CREDENTIAL_USERNAME => 'cd_cpf',
-        //     AbstractIdentifier::CREDENTIAL_PASSWORD => 'password'
-        // ];
-
-        // Debug($service);
-        // die;
 
         // Load the authenticators. Session should be first.
         $service->loadAuthenticator('Authentication.Session');
@@ -174,44 +157,23 @@ class Application extends BaseApplication implements
             ]),
         ]);
 
-
-        $service->identifiers()->set(
-            'MultiLogin',
-            new \App\Identifier\MultiLoginIdentifier()
-        );
-
-        $service->loadIdentifier('MultiLogin', [
-            'userModel' => 'Usuarios',
-            'passwordField' => 'password',
-        ]);
-
-
         // Load identifiers
-        // $service->loadIdentifier(
-        //     'Authentication.Password',
-        //     [
-        //         // 'fields' => $fields,
-        //         'fields' => [
-        //             'username' => ['cd_cpf', 'cd_rf'],
-        //             'password' => 'password',
-        //         ],
-        //         'resolver' => [
-        //             'userModel' => 'Usuarios',
-        //             'className' => 'Authentication.Orm'
+        $service->loadIdentifier(
+            'Authentication.Password',
+            [
+                'fields' => [
+                    'username' => ['cd_cpf', 'username'],
+                    'password' => 'password',
+                ],
+                'resolver' => [
+                    'className' => 'Authentication.Orm',
+                    'userModel' => 'Usuarios',
+                    'finder' => 'auth',
 
-        //         ],
-        //         'passwordHasher' => [
-        //             'className' => 'Authentication.Fallback',
-        //             'hashers' => [
-        //                 'Authentication.Default',
-        //                 [
-        //                     'className' => 'Authentication.Legacy',
-        //                     'hashType' => 'md5'
-        //                 ]
-        //             ]
-        //         ]
-        //     ]
-        // );
+                ],
+
+            ]
+        );
 
         return $service;
     }

@@ -155,23 +155,11 @@ class UsuariosTable extends Table
 
     public function findAuth(\Cake\ORM\Query\SelectQuery $query, array $options): \Cake\ORM\Query\SelectQuery
     {
-        // Força um log via arquivo direto (independe de config)
-        file_put_contents(TMP . 'finder_debug.txt', print_r($options, true));
-        $username = $options['username'] ?? '';
 
-        // \Cake\Log\Log::debug('FindAuth chamado com username: ' . $username);
-
-        // Remove formatação se parecer CPF (só dígitos após limpar)
-        $cpfLimpo = preg_replace('/\D/', '', $username);
-
-        if (strlen($cpfLimpo) === 11 && ctype_digit($cpfLimpo)) {
-            // \Cake\Log\Log::debug('Buscando por CPF: ' . $cpfLimpo);
-            // Login por CPF
-            return $query->where(['Usuarios.cd_cpf' => $cpfLimpo]);
-        }
-        // \Cake\Log\Log::debug('Buscando por username: ' . $username);
         // Login por username (ex: dpid.admin, sub.admin, secr.admin)
-        return $query->where(['Usuarios.username' => $username]);
+        return $query->where(['Usuarios.ic_ativo' => 1]);
+        // ['Usuarios.ic_ativo' => 1]);
+
     }
 
     /**

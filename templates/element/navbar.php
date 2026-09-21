@@ -29,7 +29,7 @@ if (
 if (isset($identity) && $identity->tp_usuarios_id == 2) {
 
     $urlInicio['action'] = 'dashSupervisor';
-    $urlInicio[] = ($setor->setores_id ? $setor->setores_id : $identity->id);
+    $urlInicio[] = $identity->id;
 } elseif (isset($identity) && $identity->tp_usuarios_id == 4) {
 
     $urlInicio['action'] = 'dashSubsecretaria';

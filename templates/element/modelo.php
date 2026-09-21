@@ -41,7 +41,7 @@
                 ['escape' => false,]
             ) .
 
-                '</div>
+            '</div>
                     <div class="bg-white text-dark rounded-bottom p-2 shadow flex-grow-1">
                         <div class="w-100 bg-white py-1 boder-bottom d-flex justify-content-between fs-7">
                             <p class="text-dark-primary me-3">' . count($titulo->itens) . ' Termos</p>
@@ -61,6 +61,13 @@
                 $cor = 'warning';
                 $msg = 'Rascunho';
             }
+
+            $temAssinatura = !empty($item->id_ass_dir) || !empty($item->id_ass_assis);
+
+            $urlItem = $temAssinatura
+                ? ['action' => 'visualizarPdf', $item->id]
+                : ['action' => 'manterPerguntas', 1, $titulo->escola_id, $item->id];
+
             echo
             $this->Html->link(
                 '<div class="d-flex align-items-center justify-content-between py-2 hover rounded border-top border-light-secondary">
@@ -73,7 +80,7 @@
                                         </div>' .
                     '<div style="width:4rem;" class="alert alert-' . $cor . ' rounded-pill text-center fs-7">' . $msg . '</div>
                                     </div>',
-                ['action' => 'manterPerguntas', 1, $titulo->escola_id, $item->id],
+                $urlItem,
                 ['escape' => false]
             );
         endforeach;
