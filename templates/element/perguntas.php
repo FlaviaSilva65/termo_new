@@ -29,178 +29,182 @@
     ),
 ]) ?>
 
-<?php foreach ($perguntas as $key => $p): ?>
+<fieldset <?= !empty($modoSomenteLeitura) ? 'disabled' : '' ?>>
 
-    <?php
-    $respostaSalva = $respostasSalvas[$p->id] ?? null;
-    ?>
-    <div class="d-flex xbg-white shadow border-5 border-start importanciaCor<?= substr($p->importancia, 0, 1) ?>">
-        <div class="w-100">
-            <div class="d-flex align-items-center my-1">
-                <div
-                    class="rounded-circle bg-primary ms-2 me-2 d-flex flex-shrink-0 align-items-center justify-content-center"
-                    style="width:1.3rem;height:1.3rem;">
-                    <h6 class="mb-0 text-white">
-                        <?= $key + 1 ?>
-                    </h6>
+    <?php foreach ($perguntas as $key => $p): ?>
+
+        <?php
+        $respostaSalva = $respostasSalvas[$p->id] ?? null;
+        ?>
+        <div class="d-flex xbg-white shadow border-5 border-start importanciaCor<?= substr($p->importancia, 0, 1) ?>">
+            <div class="w-100">
+                <div class="d-flex align-items-center my-1">
+                    <div
+                        class="rounded-circle bg-primary ms-2 me-2 d-flex flex-shrink-0 align-items-center justify-content-center"
+                        style="width:1.3rem;height:1.3rem;">
+                        <h6 class="mb-0 text-white">
+                            <?= $key + 1 ?>
+                        </h6>
+                    </div>
+                    <p class="text-dark small">
+                        <?= $p->descricao ?>
+                    </p>
                 </div>
-                <p class="text-dark small">
-                    <?= $p->descricao ?>
-                </p>
-            </div>
-            <?php if ($p->tipo == "checkbox"): ?>
+                <?php if ($p->tipo == "checkbox"): ?>
 
-                <!-- Checkbox -->
-                <div class="row g-1 pads">
-                    <?php foreach ($ocorrencias[$p->id] as $key => $ocorrencia): ?>
-                        <?php
-                        $marcado = in_array(
-                            $ocorrencia->id,
-                            $ocorrenciaIdsSalvas
-                        );
-                        ?>
-                        <div class="col-4 col-lg-3 d-flex align-items-stretch">
+                    <!-- Checkbox -->
+                    <div class="row g-1 pads">
+                        <?php foreach ($ocorrencias[$p->id] as $key => $ocorrencia): ?>
+                            <?php
+                            $marcado = in_array(
+                                $ocorrencia->id,
+                                $ocorrenciaIdsSalvas
+                            );
+                            ?>
+                            <div class="col-4 col-lg-3 d-flex align-items-stretch">
+                                <?= $this->Form->control(
+                                    "respostas.{$p->id}.ocorrencias.{$ocorrencia->id}",
+                                    [
+                                        'type' => 'checkbox',
+                                        'checked' => $marcado,
+                                        'label' => [
+                                            'text' => '<span>' . $ocorrencia->nm_tp_ocorrencia . '</span>',
+                                            'class' => 'checkbox-resposta mt-0',
+                                            'escape' => false,
+                                        ],
+                                    ]
+                                ) ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php elseif ($p->tipo == "radio"): ?>
+                    <!-- Radio button -->
+                    <div class="d-flex flex-wrap align-items-center gap-3 pads">
+
+                        <div class="grupo-resposta">
                             <?= $this->Form->control(
-                                "respostas.{$p->id}.ocorrencias.{$ocorrencia->id}",
+                                "respostas.{$p->id}.resposta",
                                 [
-                                    'type' => 'checkbox',
-                                    'checked' => $marcado,
-                                    'label' => [
-                                        'text' => '<span>' . $ocorrencia->nm_tp_ocorrencia . '</span>',
-                                        'class' => 'checkbox-resposta mt-0',
-                                        'escape' => false,
+                                    'type' => 'radio',
+                                    'options' => json_decode($p->opcoes ?? '', true),
+                                    'value' => $respostaSalva->resposta ?? null,
+                                    'label' => false,
+                                    'legend' => false,
+                                    'class' => 'form-check-input mt-0' . ($p->id == 35 ? ' resposta-35' : ''),
+                                    'templates' => [
+                                        'radioWrapper' => '<div class="resposta-radio mb-2">{{label}}</div>',
+                                        'radio' => '<input type="radio" name="{{name}}" value="{{value}}"{{attrs}}>',
+                                        'radioLabel' => '<label{{attrs}}>{{input}}{{text}}</label>',
                                     ],
                                 ]
                             ) ?>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php elseif ($p->tipo == "radio"): ?>
-                <!-- Radio button -->
-                <div class="d-flex flex-wrap align-items-center gap-3 pads">
 
-                    <div class="grupo-resposta">
+                        <?php if ($p->id == 35): ?>
+                            <input type="hidden" name="responsavel_id" class="id-responsavel" value="">
+                            <div class="usuario-select mb-2">
+                                <div class="usuario-select-wrapper">
+                                    <div class="usuario-select-display">
+                                        <span class="usuario-selecionado">
+                                            ⇩ Selecione quem acompanhou
+                                        </span>
+                                    </div>
+                                    <div class="usuario-select-options p-1">
+                                        <?php foreach ($usuarios_lista as $value => $nome): ?>
+                                            <div class="usuario-option px-1 rounded text-secondary" data-value="<?= h($value) ?>">
+                                                <i class="bi bi-person-circle pt-3"></i>
+                                                <span class="usuario-nome text-nowrap"><?= h($nome) ?></span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <?= $this->Form->error('responsavel_id') ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($p->tipo == "data"): ?>
+                    <div class="pads">
                         <?= $this->Form->control(
-                            "respostas.{$p->id}.resposta",
+                            'relatorio.data',
                             [
-                                'type' => 'radio',
-                                'options' => json_decode($p->opcoes ?? '', true),
-                                'value' => $respostaSalva->resposta ?? null,
+                                'type' => 'date',
                                 'label' => false,
-                                'legend' => false,
-                                'class' => 'form-check-input mt-0' . ($p->id == 35 ? ' resposta-35' : ''),
-                                'templates' => [
-                                    'radioWrapper' => '<div class="resposta-radio mb-2">{{label}}</div>',
-                                    'radio' => '<input type="radio" name="{{name}}" value="{{value}}"{{attrs}}>',
-                                    'radioLabel' => '<label{{attrs}}>{{input}}{{text}}</label>',
-                                ],
+                                'class' => 'mb-2 py-1 text-secondary',
+                                'style' => 'width:10rem;',
+                                'value' => $relatorio->data ?? null,
                             ]
                         ) ?>
                     </div>
+                <?php endif; ?>
 
-                    <?php if ($p->id == 35): ?>
-                        <input type="hidden" name="responsavel_id" class="id-responsavel" value="">
-                        <div class="usuario-select mb-2">
-                            <div class="usuario-select-wrapper">
-                                <div class="usuario-select-display">
-                                    <span class="usuario-selecionado">
-                                        ⇩ Selecione quem acompanhou
-                                    </span>
-                                </div>
-                                <div class="usuario-select-options p-1">
-                                    <?php foreach ($usuarios_lista as $value => $nome): ?>
-                                        <div class="usuario-option px-1 rounded text-secondary" data-value="<?= h($value) ?>">
-                                            <i class="bi bi-person-circle pt-3"></i>
-                                            <span class="usuario-nome text-nowrap"><?= h($nome) ?></span>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                            <?= $this->Form->error('responsavel_id') ?>
+                <?php if ($p->id != 35 && $p->tipo != "data") : ?>
+                    <div class="pads">
+                        <?= $this->Form->control(
+                            "respostas.{$p->id}.observacao",
+                            [
+                                "type" => "textarea",
+                                "rows" => 1,
+                                "label" => false,
+                                "class" => "mt-2 smart-textarea place-cor",
+                                "placeholder" => "+ Adicionar observação",
+                                "value" => $respostaSalva->observacao ?? '',
+                            ]
+                        ) ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="border-start ms-2 px-2 d-flex flex-wrap align-items-center d-print-none">
+                <div style="width:136px;">
+                    <div class="d-flex justify-content-center">
+                        <i class="bi bi-check-circle me-2 fs-6 text-success"></i>
+                        <div>
+                            <p class="d-flex mb-0 fs-7 text-success lh-1">
+                                Respondida
+                            </p>
+                            <p class="text-nowrap mb-0 fs-8 text-secondary">
+                                em <?= $p->tipo == "data" ? $relatorio->modified : ($respostaSalva?->modified ?? '') ?>
+                            </p>
                         </div>
+                    </div>
+
+                    <?php
+                    $statusSalvo = $respostaSalva->status ?? 1;
+                    ?>
+                    <?php if ($p->tipo != "data"): ?>
+                        <button
+                            type="button"
+                            class="btn-acompanhamento btn btn-<?= $statusSalvo ? 'success' : 'warning' ?> btn-sm btn-s-pill shadow fs-8 py-0"
+                            data-pergunta-id="<?= $p->id ?>">
+                            <div class="d-flex align-items-center">
+
+                                <i class="bi bi-<?= $statusSalvo ? 'check' : 'exclamation' ?>-circle me-1 text-white fs-6 py-2 lh-1"></i>
+
+                                <span class="lh-sm">
+                                    <?= $statusSalvo ? 'Requerido' : 'Requer' ?><br>
+                                    Acompanhamento
+                                </span>
+
+                            </div>
+                        </button>
                     <?php endif; ?>
                 </div>
-            <?php endif; ?>
 
-            <?php if ($p->tipo == "data"): ?>
-                <div class="pads">
-                    <?= $this->Form->control(
-                        'relatorio.data',
-                        [
-                            'type' => 'date',
-                            'label' => false,
-                            'class' => 'mb-2 py-1 text-secondary',
-                            'style' => 'width:10rem;',
-                            'value' => $relatorio->data ?? null,
-                        ]
-                    ) ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($p->id != 35 && $p->tipo != "data") : ?>
-                <div class="pads">
-                    <?= $this->Form->control(
-                        "respostas.{$p->id}.observacao",
-                        [
-                            "type" => "textarea",
-                            "rows" => 1,
-                            "label" => false,
-                            "class" => "mt-2 smart-textarea place-cor",
-                            "placeholder" => "+ Adicionar observação",
-                            "value" => $respostaSalva->observacao ?? '',
-                        ]
-                    ) ?>
-                </div>
-            <?php endif; ?>
-        </div>
-        <div class="border-start ms-2 px-2 d-flex flex-wrap align-items-center d-print-none">
-            <div style="width:136px;">
-                <div class="d-flex justify-content-center">
-                    <i class="bi bi-check-circle me-2 fs-6 text-success"></i>
-                    <div>
-                        <p class="d-flex mb-0 fs-7 text-success lh-1">
-                            Respondida
-                        </p>
-                        <p class="text-nowrap mb-0 fs-8 text-secondary">
-                            em <?= $p->tipo == "data" ? $relatorio->modified : ($respostaSalva?->modified ?? '') ?>
-                        </p>
-                    </div>
-                </div>
-
-                <?php
-                $statusSalvo = $respostaSalva->status ?? 1;
-                ?>
-                <?php if ($p->tipo != "data"): ?>
-                    <button
-                        type="button"
-                        class="btn-acompanhamento btn btn-<?= $statusSalvo ? 'success' : 'warning' ?> btn-sm btn-s-pill shadow fs-8 py-0"
-                        data-pergunta-id="<?= $p->id ?>">
-                        <div class="d-flex align-items-center">
-
-                            <i class="bi bi-<?= $statusSalvo ? 'check' : 'exclamation' ?>-circle me-1 text-white fs-6 py-2 lh-1"></i>
-
-                            <span class="lh-sm">
-                                <?= $statusSalvo ? 'Requerido' : 'Requer' ?><br>
-                                Acompanhamento
-                            </span>
-
-                        </div>
-                    </button>
-                <?php endif; ?>
             </div>
 
         </div>
+        <?php if ($p->id != 35 && $p->tipo != 'data'): ?>
 
-    </div>
-    <?php if ($p->id != 35 && $p->tipo != 'data'): ?>
+            <?= $this->Form->hidden(
+                "respostas.{$p->id}.status",
+                ['value' => $statusSalvo]
+            ) ?>
+        <?php endif; ?>
 
-        <?= $this->Form->hidden(
-            "respostas.{$p->id}.status",
-            ['value' => $statusSalvo]
-        ) ?>
-    <?php endif; ?>
+    <?php endforeach; ?>
 
-<?php endforeach; ?>
+</fieldset>
 
 <?= $this->Form->end() ?>
 <script>
@@ -212,6 +216,12 @@
 
         if (!usuarioSelect) {
             return;
+        }
+
+        // Em modo somente leitura, trava a interação com o seletor customizado
+        if (typeof modoSomenteLeitura !== 'undefined' && modoSomenteLeitura) {
+            usuarioSelect.classList.add('pe-none');
+            usuarioSelect.style.opacity = '0.7';
         }
 
         const hiddenUsuario = usuarioSelect

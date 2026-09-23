@@ -18,17 +18,28 @@ use DateTime;
  */
 class RelatoriosController extends AppController
 {
-    public function initialize(): void
-    {
-        parent::initialize();
-        // $this->loadComponent('CrachaDigital');
-        $this->Authentication->allowUnauthenticated(['manterPerguntas']);
-    }
+    // public function initialize(): void
+    // {
+    //     parent::initialize();
+    //     // $this->loadComponent('CrachaDigital');
+    //     $this->Authentication->allowUnauthenticated(['manterPerguntas']);
+    // }
 
     public function manterPerguntas($dimensao, $escola_id, $id = null)
     {
         $this->Authorization->skipAuthorization();
         $identity = $this->Authentication->getIdentity();
+
+        // Mapeia perfis que só navegam/assinam (não editam nem salvam rascunho)
+        $camposAssinaturaPorPerfil = [
+            1 => 'id_ass_dir',   // Diretor
+            5 => 'id_ass_assis', // Assistente
+            7 => 'id_ass_sub',   // Subsecretaria
+            8 => 'id_ass_sub',   // Subsecretaria-adjunto
+        ];
+
+        $modoSomenteLeitura = array_key_exists($identity->tp_usuarios_id, $camposAssinaturaPorPerfil);
+        $campoAssinaturaUsuario = $camposAssinaturaPorPerfil[$identity->tp_usuarios_id] ?? null;
 
         $queryPerguntas = $this->fetchTable('Perguntas');
         $queryOcorrencias = $this->fetchTable('Ocorrencias');
@@ -131,8 +142,20 @@ class RelatoriosController extends AppController
 
         //Monta o set da seção do termo e garante o nº de dimensões de
         // if (!$somentePendencias) {
-        $dimensao = $this->secoesTermo($dimensao, $queryPerguntas, $relatorio->id);
+        $dimensao = $this->secoesTermo($dimensao, $queryPerguntas, $relatorio->id, $identity->tp_usuarios_id);
         // }
+
+        if (
+            in_array($identity->tp_usuarios_id, [1, 5]) &&
+            $dimensao == 7
+        ) {
+            return $this->redirect([
+                'action' => 'manterPerguntas',
+                6,
+                $escola_id,
+                $id
+            ]);
+        }
 
 
         // ----- Se estiver em modo pendências, calcula quais dimensões ainda têm pendência -----
@@ -178,6 +201,14 @@ class RelatoriosController extends AppController
         }
 
         if ($this->request->is(['post', 'put'])) {
+            if ($modoSomenteLeitura) {
+                $this->response = $this->response
+                    ->withStatus(403)
+                    ->withType('application/json')
+                    ->withStringBody(json_encode(['success' => false, 'message' => 'Sem permissão para editar.']));
+                $this->autoRender = false;
+                return $this->response;
+            }
             $data = $this->request->getData();
 
             \Cake\Log\Log::debug('DADOS CoMPLETOS: ' . json_encode($data));
@@ -366,10 +397,14 @@ class RelatoriosController extends AppController
             $condicoes['created <'] = $relatorio->created;
         }
 
-        $perguntas = $queryPerguntas->find()->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'dimensao', 'created'])->where([
-            'dimensao' => $dimensao,
-            'created <' =>  $relatorio->created
-        ])->orderByAsc('ordem')->all();
+        // if (in_array($identity->tp_usuarios_id, [1, 5])) {
+        //     $condicoes['Perguntas.id !='] = 34;
+        // }
+
+        $perguntas = $queryPerguntas->find()
+            ->select(['id', 'ordem', 'descricao', 'tipo', 'opcoes', 'importancia', 'dimensao', 'created'])
+            ->where($condicoes)
+            ->orderByAsc('ordem')->all();
 
         //Monta array com ocorrencis existentes em relação a pergunta
         $ocorrencias = [];
@@ -398,6 +433,34 @@ class RelatoriosController extends AppController
                 ->toArray();
         }
 
+        // Contagem de pendências por dimensão (para exibir badge na coluna de seções)
+        $pendenciasPorDimensaoCount = [];
+        if ($id) {
+            $pendenciaIdsPergunta = $Providencia->find()
+                ->select(['pergunta_id'])
+                ->where(['relatorio_id' => $id, 'status' => 0])
+                ->all()
+                ->extract('pergunta_id')
+                ->toArray();
+
+            if (!empty($pendenciaIdsPergunta)) {
+                $perguntasPendentesTodasDim = $queryPerguntas->find()
+                    ->select(['id', 'dimensao'])
+                    ->where(['id IN' => $pendenciaIdsPergunta])
+                    ->all();
+
+                foreach ($perguntasPendentesTodasDim as $pp) {
+                    $pendenciasPorDimensaoCount[$pp->dimensao] = ($pendenciasPorDimensaoCount[$pp->dimensao] ?? 0) + 1;
+                }
+            }
+        }
+
+        if (in_array($identity->tp_usuarios_id, [1, 5])) {
+            $perguntas = $perguntas->filter(function ($p) {
+                return $p->id != 34;
+            });
+        }
+
         // ----- Aplica o filtro de pendências por último, já com $respostasSalvas montado -----
         if ($somentePendencias) {
             $perguntaIdsPendentes = $Providencia->find()
@@ -408,6 +471,7 @@ class RelatoriosController extends AppController
                 ->toArray();
 
             $perguntas = $perguntas->filter(function ($p) use ($perguntaIdsPendentes) {
+
                 return in_array($p->id, $perguntaIdsPendentes);
             });
         }
@@ -424,10 +488,13 @@ class RelatoriosController extends AppController
             'ocorrenciaIdsSalvas' => $ocorrenciaIdsSalvas ?? [],
             'somentePendencias' => $somentePendencias,
             'dimensoesComPendencia' => $dimensoesComPendencia,
+            'pendenciasPorDimensao' => $pendenciasPorDimensaoCount,
+            'modoSomenteLeitura' => $modoSomenteLeitura,
+            'campoAssinaturaUsuario' => $campoAssinaturaUsuario
         ]);
     }
 
-    private function secoesTermo($dimensao, $queryPerguntas, $relatorioId = null)
+    private function secoesTermo($dimensao, $queryPerguntas, $relatorioId = null, $tpUsuarioId = null)
     {
         // Qtd de ocorrências por dimensão
         $Dimensoes = $this->fetchTable('Dimensao');
@@ -537,6 +604,11 @@ class RelatoriosController extends AppController
 
         $dimensoes = [];
         foreach ($dimensoesDb as $d) {
+
+               // Tipos 1 e 5 não visualizam a dimensão 7
+    if (in_array($tpUsuarioId, [1, 5]) && $d->id == 7) {
+        continue;
+    }
             $dimensoes[] = (object)[
                 'dimensao' => $d->id,
                 'titCompleto' => $d->titCompleto,
@@ -546,17 +618,31 @@ class RelatoriosController extends AppController
             ];
         }
 
+        $idsDimensoes = array_map(
+            fn($d) => $d->dimensao,
+            $dimensoes
+        );
+        
+        if (!in_array($dimensao, $idsDimensoes)) {
+            $dimensao = $idsDimensoes[0] ?? 1;
+        }
+        
+        $indiceAtual = array_search($dimensao, $idsDimensoes, true);
+        
+        $desabilitaAnt = ($indiceAtual === 0) ? 'disabled' : '';
+        $desabilitaProx = ($indiceAtual === count($idsDimensoes) - 1) ? 'disabled' : '';
+
         // Mantém Botões Etapa anterior e posterior em seus limites
         // if ($dimensao < 1) $dimensao = 1;
         // else if ($dimensao > count($dimensoes)) $dimensao = count($dimensoes);
 
-        if ($dimensao <= 1) {
-            $desabilitaAnt = 'disabled';
-            $dimensao = 1;
-        } else if ($dimensao >= count($dimensoes)) {
-            $desabilitaProx = 'disabled';
-            $dimensao = count($dimensoes);
-        }
+        // if ($dimensao <= 1) {
+        //     $desabilitaAnt = 'disabled';
+        //     $dimensao = 1;
+        // } else if ($dimensao >= count($dimensoes)) {
+        //     $desabilitaProx = 'disabled';
+        //     $dimensao = count($dimensoes);
+        // }
 
         $this->set([
             'romanos' => [
@@ -660,7 +746,7 @@ class RelatoriosController extends AppController
         return $contagem; // ex: [1 => 4, 2 => 0, 3 => 2, ...]
     }
 
-    public function concluirAssinatura($relatorio_id, $setor_id)
+    public function concluirAssinatura($relatorio_id)
     {
         $identity = $this->Authentication->getIdentity();
 
@@ -668,8 +754,19 @@ class RelatoriosController extends AppController
 
         $this->Authorization->authorize($relatorio, 'concluirAssinatura');
 
-        $relatorio->ic_rascunho = 0;
-        $relatorio->id_ass_super = $identity->id;
+        if ($identity->tp_usuarios_id == 2) {
+            $relatorio->ic_rascunho = 0;
+            $relatorio->id_ass_super = $identity->id;
+        } elseif ($identity->tp_usuarios_id == 1) {
+            $relatorio->id_ass_dir = $identity->id;
+            $relatorio->data_ass_dir = date('Y-m-d');
+        } elseif ($identity->tp_usuarios_id == 5) {
+            $relatorio->id_ass_assis = $identity->id;
+            $relatorio->data_ass_assis = date('Y-m-d');
+        } elseif ($identity->tp_usuarios_id == 4 || $identity->tp_usuarios_id == 8) {
+            $relatorio->id_ass_sub = $identity->id;
+            $relatorio->data_ass_sub = date('Y-m-d');
+        }
 
         if ($this->Relatorios->save($relatorio)) {
             $this->Flash->success('Termo concluído e assinado com sucesso.');
@@ -677,7 +774,13 @@ class RelatoriosController extends AppController
             $this->Flash->error('Não foi possível concluir e assinar o termo.');
         }
 
-        return $this->redirect(['action' => 'dashSupervisor', $setor_id]);
+        if ($identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5) {
+            return $this->redirect(['action' => 'dashEscolas', $relatorio->unid_escolar_id]);
+        } elseif ($identity->tp_usuarios_id == 2) {
+            return $this->redirect(['action' => 'dashSupervisor', $identity->id]);
+        } elseif ($identity->tp_usuarios_id == 4 || $identity->tp_usuarios_id == 8) {
+            return $this->redirect(['action' => 'dashSupervisorEscolas']);
+        }
     }
 
     public function providencia($escola_id)
@@ -1235,16 +1338,50 @@ class RelatoriosController extends AppController
             }
 
             $relatorios = $query->all();
-        }
+        } elseif ($user->tp_usuarios_id == 1 || $user->tp_usuarios_id == 5) {
+            $query = $this->Relatorios->find()
+                ->where([
+                    'Relatorios.unid_escolar_id' => $escola_id,
+                    'YEAR(Relatorios.data)' => $ano,
+                    'Relatorios.ic_rascunho' => 0
+                ])
+                ->contain(['Usuarios'])
+                ->orderBy([
+                    'Relatorios.id' => 'DESC'
+                ]);
+            // if ($somentePendentes) {
+            //     $query->where([
+            //         'Relatorios.ic_rascunho !=' => 1,
+            //         'OR' => [
+            //             'Relatorios.id_ass_dir IS' => null,
+            //             'Relatorios.id_ass_assis IS' => null,
+            //         ]
+            //     ]);
+            // }
 
-        $providencias = $this->Relatorios->Respostas->find()
-            ->where([
-                'Respostas.status' => 0,
-                'Relatorios.unid_escolar_id' => $escola_id,
-                'Relatorios.usuario_id' => $user->id
-            ])
-            ->contain(['Relatorios', 'Perguntas'])
-            ->all();
+            $relatorios = $query->all();
+        }
+        if ($user->tp_usuarios_id == 2) {
+
+            $providencias = $this->Relatorios->Respostas->find()
+                ->where([
+                    'Respostas.status' => 0,
+                    'Relatorios.unid_escolar_id' => $escola_id,
+                    'Relatorios.usuario_id' => $user->id
+                ])
+                ->contain(['Relatorios', 'Perguntas'])
+                ->all();
+        } else {
+            $providencias = $this->Relatorios->Respostas->find()
+                ->where([
+                    'Respostas.status' => 0,
+                    'Relatorios.unid_escolar_id' => $escola_id,
+                    'Relatorios.ic_rascunho' => 0 // Não é rascunho
+
+                ])
+                ->contain(['Relatorios', 'Perguntas'])
+                ->all();
+        }
 
         $relatoriosPendentes = $this->fetchTable('Relatorios')
             ->find()

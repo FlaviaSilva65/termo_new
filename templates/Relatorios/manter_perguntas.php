@@ -19,11 +19,13 @@
                 ['class' => 'btn btn-primary btn-sm btn-s-pill shadow link-navegacao ' . $desabilitaAnt . '', 'escape' => false]
             ) ?>
             <div class="">
-                <?= $this->Html->link(
-                    '<i class="bi bi-floppy me-2"></i>Salvar rascunho',
-                    '/',
-                    ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho', 'escape' => false]
-                ) ?>
+                <?php if (empty($modoSomenteLeitura)): ?>
+                    <?= $this->Html->link(
+                        '<i class="bi bi-floppy me-2"></i>Salvar rascunho',
+                        '/',
+                        ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho', 'escape' => false]
+                    ) ?>
+                <?php endif; ?>
                 <?= $this->Html->link(
                     'Próxima etapa<i class="bi bi-arrow-right ms-2"></i>',
                     ['action' => 'manterPerguntas', $dimensao + 1, $escola_id, $relatorio->id],
@@ -52,13 +54,15 @@
                     <?= $this->Html->link(
                         'Próxima pendência<i class="bi bi-arrow-right ms-2"></i>',
                         ['action' => 'manterPerguntas', $proximaComPendencia, $escola_id, $relatorio->id, '?' => ['pendencias' => 1]],
-                        ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-navegacao', 'escape' => false]
+                        ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-secao', 'escape' => false]
                     ) ?>
                 <?php else: ?>
                     <?= $this->Html->link(
                         '<i class="bi bi-check-circle me-2"></i>Finalizar pendências',
                         ['action' => 'dash-supervisor', $identity->id],
-                        ['class' => 'btn btn-success btn-sm btn-e-pill shadow', 'escape' => false]
+                        ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3', 'escape' => false]
+
+
                     ) ?>
                 <?php endif; ?>
             </div>
@@ -67,6 +71,7 @@
 </div>
 <script>
     const somentePendencias = <?= $somentePendencias ? 'true' : 'false' ?>;
+    const modoSomenteLeitura = <?= !empty($modoSomenteLeitura) ? 'true' : 'false' ?>;
     const relatorioId = <?= (int)$relatorio->id ?>;
 
     // Radio
@@ -231,7 +236,12 @@
         document.querySelectorAll('.link-secao').forEach(function(link) {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
-                salvarEIrPara(this.href);
+                if (somentePendencias || modoSomenteLeitura) {
+                    window.location.href = this.href;
+                } else {
+                    salvarEIrPara(this.href);
+                }
+
             });
         });
 
@@ -239,7 +249,11 @@
         document.querySelectorAll('.link-navegacao').forEach(function(link) {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
-                salvarEIrPara(this.href);
+                if (modoSomenteLeitura) {
+                    window.location.href = this.href;
+                } else {
+                    salvarEIrPara(this.href);
+                }
             });
         });
 

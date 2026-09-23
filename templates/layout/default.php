@@ -58,10 +58,10 @@
 
 <!-- <body class="d-flex flex-column min-vh-100" data-bs-spy="scroll" data-bs-root-margin="-40% 0% -40% 0%" data-bs-smooth-scroll="true"> -->
 
-<body class="container-fluid gx-0 position-relative min-vh-100">
+<body class="d-flex flex-column min-vh-100">
     <?= $this->element('header') ?>
 
-    <div class="container-fluid pb-0 flex-grow-1">
+    <main class="container-fluid flex-grow-1 px-0">
         <div class="text-center">
             <?= $this->Flash->render(); ?>
         </div>
@@ -90,6 +90,7 @@
         <?php endif; ?>
 
         <?= $this->fetch('content') ?>
+    </main>
 
         <?php if (isset($identity)) { ?>
 
@@ -103,7 +104,7 @@
             </div> -->
 
         <?php } ?>
-    </div>
+        
     <?= $this->element('footer') ?>
 </body>
 

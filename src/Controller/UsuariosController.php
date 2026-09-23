@@ -567,35 +567,33 @@ class UsuariosController extends AppController
                     //     }
                     // }
                 } elseif ($tpUsuarioId == 1 || $tpUsuarioId == 5) {
-                    return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_diretor_escolas', $identity->id]);
-                    // $Dashboards = $this->fetchTable('Dashboards'); // Acessando a tabela Dashboards com a DashboardsTable
-                    // $Funcionarios = $this->fetchTable('Funcionarios'); // Acessando a tabela Funcionarios com FuncionariosTable
-                    // $UnidEscolares = $this->fetchTable('UnidEscolares');
+                    $Dashboards = $this->fetchTable('Dashboards'); // Acessando a tabela Dashboards com a DashboardsTable
+                    $Funcionarios = $this->fetchTable('Funcionarios'); // Acessando a tabela Funcionarios com FuncionariosTable
+                    $funcionario_id = $Funcionarios->find()->where(['rf' => $identity->cd_rf])->first();
 
-                    // $funcionario_id = $Funcionarios->find()->where(['rf' => $identity->cd_rf])->first();
-                    // $escolas = $Dashboards->find()->where(['funcionario_id' => $funcionario_id->id_funcionario])->all();
+                    $escolas = $Dashboards->find()->where(['funcionario_id' => $funcionario_id->id_funcionario])->all();
 
-                    // $ids_escolas = [];
-                    // foreach ($escolas as $escola):
-                    //     $ids_escolas[] =  $escola->escola_id;
-                    // endforeach;
+                    $UnidEscolares = $this->fetchTable('UnidEscolares');
+                    $ids_escolas = [];
+                    foreach ($escolas as $escola):
+                        $ids_escolas[] =  $escola->escola_id;
+                    endforeach;
 
-                    // $unid_escolares = $UnidEscolares->find()->where(['id_escola IN' => $ids_escolas])->all();
+                    $unid_escolares = $UnidEscolares->find()->where(['id_escola IN' => $ids_escolas])->all();
 
-                    // if (count($unid_escolares) == 1) {
-                    //     $escola_id = $unid_escolares->first()->id;
-                    //     return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_escolas', $escola_id]);
-                    // } else {
-                    //     // VAI PARA UMA VIEW DASH_DIRETOR COM O ID DO USUÁRIO
-                    //     // EXIBE TODAS AS ESCOLAS QUE O DIRETOR ESTÁ ASSOCIADO 
-                    //     // e ELE ESCOLHE QUAL ESCOLA QUER VER O TERMO.
-
-                        
-                    //     // $escolas_id = [];
-                    //     // foreach ($unid_escolares as $unid_escolar):
-                    //     //     $escolas_id[] = $unid_escolar->id;
-                    //     // endforeach;
-                    // };
+                    if (count($unid_escolares) == 1) {
+                        $escola_id = $unid_escolares->first()->id;
+                        return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_escolas', $escola_id]);
+                    } else {
+                        // VAI PARA UMA VIEW DASH_DIRETOR COM O ID DO USUÁRIO
+                        // EXIBE TODAS AS ESCOLAS QUE O DIRETOR ESTÁ ASSOCIADO 
+                        // e ELE ESCOLHE QUAL ESCOLA QUER VER O TERMO.
+                        $escolas_id = [];
+                        foreach ($unid_escolares as $unid_escolar):
+                            $escolas_id[] = $unid_escolar->id;
+                        endforeach;
+                        return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_supervisor', $identity->id]);
+                    };
                 } else {
                     // Fallback para outros tipos
                     return $this->redirect('/');

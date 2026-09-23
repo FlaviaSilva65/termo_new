@@ -182,6 +182,8 @@ class Application extends BaseApplication implements
     {
         $resolver = new OrmResolver();
 
-        return new AuthorizationService($resolver);
+        return new AuthorizationService($resolver,[
+            'requireAuthorizationCheck' => true,
+        ]);
     }
 }

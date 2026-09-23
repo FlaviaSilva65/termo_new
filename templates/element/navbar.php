@@ -12,7 +12,7 @@ $urlInicio = [
 
 
 if (
-    isset($identity) && $identity->tp_usuarios_id == 2 && $this->request->getParam('action') == 'dashEscolas'
+    isset($identity) && ($identity->tp_usuarios_id == 2 || $identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5) && $this->request->getParam('action') == 'dashEscolas'
     || ($this->request->getParam('action') == 'providencia')
 ) {
     $urlPend = [
@@ -35,8 +35,8 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
     $urlInicio['action'] = 'dashSubsecretaria';
 } elseif (isset($identity) && ($identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5)) {
 
-    $urlInicio['action'] = 'dashDiretorEscolas';
-    $urlInicio[] = $identity->id;
+    $urlInicio['action'] = 'dashEscolas';
+    $urlInicio[] = isset($escola) ? $escola->id : $escola_id;
 } elseif (isset($identity) && ($identity->tp_usuarios_id == 6 || $identity->tp_usuarios_id == 9)) {
     $urlInicio = [
         'controller' => 'Usuarios',
@@ -73,17 +73,18 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                     '?' => ['novo' => 1],
                 ];
                 ?>
-
-                <!-- NOVO TERMO / RELATÓRIO -->
-                <?= $this->Html->link(
-                    '<i class="bi bi-file-earmark-plus fs-4 me-2"></i>
+                <?php if ($identity->tp_usuarios_id == 2) { ?>
+                    <!-- NOVO TERMO / RELATÓRIO -->
+                    <?= $this->Html->link(
+                        '<i class="bi bi-file-earmark-plus fs-4 me-2"></i>
                         <span class="fs-6">Novo Termo</span>',
-                    $urlNovoRelatorio,
-                    [
-                        'class' => 'd-flex align-items-center py-0 me-3 px-1 btn btn-primary btn-sm',
-                        'escape' => false
-                    ]
-                ) ?>
+                        $urlNovoRelatorio,
+                        [
+                            'class' => 'd-flex align-items-center py-0 me-3 px-1 btn btn-primary btn-sm',
+                            'escape' => false
+                        ]
+                    ) ?>
+                <?php } ?>
 
             <?php endif; ?>
 

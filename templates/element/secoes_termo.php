@@ -1,3 +1,10 @@
+<?php
+$identity = $this->request->getAttribute('identity');
+$assinadoPeloSupervisorLogado = !empty($relatorio->id_ass_super)
+    && $identity
+    && $relatorio->id_ass_super == $identity->id;
+?>
+
 <div class="p-2 d-print-none" style="width:20rem;">
     <div class="w-100 bg-white p-2 rounded-top shadow">
         <p class="mb-0 fs-6 mb-0 fw-bold text-primary">SEÇÕES DO TERMO</p>
@@ -11,6 +18,18 @@
     </div>
     <?php
     foreach ($dimensoes as $d):
+        // Modo pendências: mostra só as seções que têm pendência
+        if (!empty($somentePendencias) && !in_array($d->dimensao, $dimensoesComPendencia ?? [])) {
+            continue;
+        }
+
+        $urlSecao = array_merge(
+            ['action' => 'manterPerguntas', $d->dimensao, $escola_id, $relatorio->id],
+            !empty($somentePendencias) ? ['?' => ['pendencias' => 1]] : []
+        );
+
+        $qtdPendenciasDimensao = $pendenciasPorDimensao[$d->dimensao] ?? 0;
+
         echo
         $this->Html->link(
             '<div class="w-100 d-flex border border-light align-items-center justify-content-between btn-hover shadow">
@@ -31,31 +50,42 @@
                                     data-bs-content="<div class=\'w-100 rounded bg-info ps-2 text-center\'>Dimensão ' . $romanos[$d->dimensao] . '</div>' . $d->titCompleto . '">
                                     <i class="bi bi-info-circle small ms-1 text-primary"></i>
                                 </button>
-                            </span>
-                        </h6>
+                            </span>' .
+                ($qtdPendenciasDimensao > 0
+                    ? '<br><span class="badge bg-danger rounded-pill fs-8">' . $qtdPendenciasDimensao . ' pendência' . ($qtdPendenciasDimensao > 1 ? 's' : '') . '</span>'
+                    : '')
+                .
+                '</h6>
                     </div>
                     <div class="d-flex align-items-center">
                         <div class="progress-ring my-1 me-1" data-dimensao="' . $d->dimensao . '" data-current="' . $d->pergRespondidas . '" data-total="' . $d->pergTotal . '" data-size="60" data-stroke="5"></div>
                         <div class="rounded me-1 barra-hover"></div>
                     </div>
                 </div>',
-            ['action' => 'manterPerguntas', $d->dimensao, $escola_id, $relatorio->id],
+            $urlSecao,
             ['class' => 'link-secao', 'escape' => false]
         );
     endforeach;
-    echo
-    '<div class="bg-white rounded-bottom text-center p-2 shadow">' .
-        $this->Form->postLink(
+    echo '<div class="bg-white rounded-bottom text-center p-2 shadow">';
+
+    if ($assinadoPeloSupervisorLogado) {
+
+        echo '<span type="button" class="btn btn-success btn-sm btn-s-pill shadow mostraBtn" disabled>
+                    <i class="bi bi-check-circle me-1"></i>Assinado
+                </span>';
+    } else {
+       echo $this->Form->postLink(
             '<i class="bi bi-check-circle me-1"></i>Concluir e Assinar',
-            ['action' => 'concluirAssinatura', $relatorio->id, $setor->setores_id],
+            ['action' => 'concluirAssinatura', $relatorio->id],
             [
                 'class' => 'btn btn-success btn-sm btn-s-pill shadow d-none mostraBtn',
                 'escape' => false,
                 'confirm' => 'Tem certeza que deseja concluir e assinar este termo?'
             ]
         ) .
-        '<h6 class="mb-0 small text-danger d-inline-block mostraBtn"><b><i class="bi bi-exclamation-circle me-1"></i></b>Conclua todas as seções para assinar</h6>' .
-        '</div>';
+            '<h6 class="mb-0 small text-danger d-inline-block mostraBtn"><b><i class="bi bi-exclamation-circle me-1"></i></b>Conclua todas as seções para assinar</h6>';
+    }
+    echo   '</div>';
     ?>
 </div>
 <script>
@@ -158,6 +188,7 @@
 
         // Amarelo Bootstrap -> Verde Bootstrap
         const btns = document.getElementsByClassName('mostraBtn');
+        console.log(btns);
         if (percent >= 100) {
             bar.style.background = '#198754';
             btns[0].classList.replace('d-none', 'd-inline-block');
