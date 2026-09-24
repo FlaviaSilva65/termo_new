@@ -87,8 +87,20 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                 <?php } ?>
 
             <?php endif; ?>
+            <?php if (isset($identity) && $identity->tp_usuarios_id == 2 && $this->request->getParam('action') === 'dashSupervisor'): ?>
+                <i class="bi bi-buildings fs-4 me-2"></i>
+                <h6 class="mb-0 me-4">Escolas</h6>
 
-            <?php if (($acaoAtual === 'manterPerguntas'  && isset($relatorio)) || $acaoAtual === 'dashEscolas'): ?>
+                <h6 class="info-rounded-pill align-self-center bg-dark-quaternary small mb-0 me-4 d-flex align-items-center">
+                    <span class="info-s-pill me-1"><i class="bi bi-building"></i></span>Total de Escolas: <?= count($titulos) ?>
+                </h6>
+                <h6 class="info-rounded-pill align-self-center bg-danger small mb-0 d-flex align-items-center">
+                    <span class="info-s-pill me-1"><i class="bi bi-pencil-square"></i></span>Total de Pendencias: <?= $totalPendencias ?>
+                </h6>
+
+            <?php endif; ?>
+
+            <?php if (($acaoAtual === 'manterPerguntas'  && isset($relatorio)) || $acaoAtual === 'dashEscolas' || $acaoAtual === 'pendencias'): ?>
                 <?php
                 $termo = $relatorio->termo_id ?? null;
                 // Situação
@@ -147,30 +159,62 @@ if (isset($identity) && $identity->tp_usuarios_id == 2) {
                 <?php endif; ?>
 
                 <!-- PENDÊNCIAS (Aguardando Providências -->
-                <?php if ($this->request->getParam('action') === 'dashEscolas' && isset($pendencias)): ?>
+                <?php if ($acaoAtual === 'dashEscolas' && isset($pendencias) || $acaoAtual === 'pendencias'): ?>
+
                     <?php
+                    isset($pendencias) ? $pendencias = count($pendencias) : $pendencias = array_sum(array_map('count', $pendenciasPorRelatorio));
+
                     $urlPendencias = [
                         'plugin' => null,
                         'controller' => 'Relatorios',
                         'action' => 'pendencias',
-                        $escola->id
+                        $escola->id ?? $escola_id
                     ];
                     ?>
+                    <?php if ($acaoAtual === 'pendencias'): ?>
+                        <h6 class="info-rounded-pill align-self-center bg-success mb-0 d-flex align-items-center me-3">
+                            <span class="info-s-pill me-1">
+                                <i class="bi bi-pencil-square"></i>
+                            </span>
+                            Total de Termos: <?= count($pendenciasPorRelatorio) ?>
+                        </h6>
 
-                    <?= $this->Html->link(
-                        '<h6 class="info-rounded-pill align-self-center bg-danger mb-0 d-flex align-items-center" style="letter-spacing: 0.10rem;">
+                    <?php endif; ?>
+
+                    <?php
+                    $htmlPendencias = '<h6 class="info-rounded-pill align-self-center bg-danger mb-0 d-flex align-items-center" style="letter-spacing: 0.10rem;">
                         <span class="info-s-pill me-1">
                             <i class="bi bi-check-square"></i>
                         </span>
-                        Pendências: ' . count($pendencias) . '</h6>',
-                        $urlPendencias,
-                        [
-                            'class' => 'd-flex align-items-center py-0 px-1 btn btn-primary btn-sm',
-                            'escape' => false,
-                            'title' => 'Termos com pendências apontadas'
-                        ]
-                    ) ?>
+                        Pendências: ' . $pendencias . '</h6>';
+                    ?>
 
+                    <?php if ($acaoAtual === 'pendencias'): ?>
+                        <!-- Já está na tela de pendências: não clicável -->
+                        <h6 class="info-rounded-pill align-self-center bg-danger mb-0 d-flex align-items-center me-3">
+                            <span class="info-s-pill me-1">
+                                <i class="bi bi-pencil-square"></i>
+                            </span>
+                            Pendências: <?= $pendencias ?>
+                        </h6>
+
+                    <?php else: ?>
+
+                        <?= $this->Html->link(
+                            '<h6 class="info-rounded-pill align-self-center bg-danger mb-0 d-flex align-items-center" style="letter-spacing: 0.10rem;">
+                        <span class="info-s-pill me-1">
+                            <i class="bi bi-check-square"></i>
+                        </span>
+                        Pendências: ' . $pendencias . '</h6>',
+                            $urlPendencias,
+                            [
+                                'class' => 'd-flex align-items-center py-0 px-1 btn btn-primary btn-sm',
+                                'escape' => false,
+                                'title' => 'Termos com pendências apontadas'
+                            ]
+                        ) ?>
+
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <!-- SITUAÇÃO -->

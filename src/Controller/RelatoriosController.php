@@ -140,6 +140,12 @@ class RelatoriosController extends AppController
 
         $this->Authorization->authorize($relatorio, 'manterPerguntas');
 
+        if ($relatorio->id_ass_super != null) {
+            $desabilitaSalvarRasc = 'disabled';
+        } else {
+            $desabilitaSalvarRasc = '';
+        }
+
         //Monta o set da seção do termo e garante o nº de dimensões de
         // if (!$somentePendencias) {
         $dimensao = $this->secoesTermo($dimensao, $queryPerguntas, $relatorio->id, $identity->tp_usuarios_id);
@@ -490,7 +496,8 @@ class RelatoriosController extends AppController
             'dimensoesComPendencia' => $dimensoesComPendencia,
             'pendenciasPorDimensao' => $pendenciasPorDimensaoCount,
             'modoSomenteLeitura' => $modoSomenteLeitura,
-            'campoAssinaturaUsuario' => $campoAssinaturaUsuario
+            'campoAssinaturaUsuario' => $campoAssinaturaUsuario,
+            'desabilitaSalvarRasc' => $desabilitaSalvarRasc
         ]);
     }
 
@@ -605,10 +612,10 @@ class RelatoriosController extends AppController
         $dimensoes = [];
         foreach ($dimensoesDb as $d) {
 
-               // Tipos 1 e 5 não visualizam a dimensão 7
-    if (in_array($tpUsuarioId, [1, 5]) && $d->id == 7) {
-        continue;
-    }
+            // Tipos 1 e 5 não visualizam a dimensão 7
+            if (in_array($tpUsuarioId, [1, 5]) && $d->id == 7) {
+                continue;
+            }
             $dimensoes[] = (object)[
                 'dimensao' => $d->id,
                 'titCompleto' => $d->titCompleto,
@@ -619,16 +626,16 @@ class RelatoriosController extends AppController
         }
 
         $idsDimensoes = array_map(
-            fn($d) => $d->dimensao,
+            fn($d) => (int)$d->dimensao,
             $dimensoes
         );
-        
-        if (!in_array($dimensao, $idsDimensoes)) {
+
+        if (!in_array((int)$dimensao, $idsDimensoes, true)) {
             $dimensao = $idsDimensoes[0] ?? 1;
         }
-        
-        $indiceAtual = array_search($dimensao, $idsDimensoes, true);
-        
+
+        $indiceAtual = array_search((int)$dimensao, $idsDimensoes, true);
+
         $desabilitaAnt = ($indiceAtual === 0) ? 'disabled' : '';
         $desabilitaProx = ($indiceAtual === count($idsDimensoes) - 1) ? 'disabled' : '';
 
@@ -1367,7 +1374,8 @@ class RelatoriosController extends AppController
                 ->where([
                     'Respostas.status' => 0,
                     'Relatorios.unid_escolar_id' => $escola_id,
-                    'Relatorios.usuario_id' => $user->id
+                    'Relatorios.usuario_id' => $user->id,
+                    'Relatorios.ic_rascunho' => 0 // Não é rascunho
                 ])
                 ->contain(['Relatorios', 'Perguntas'])
                 ->all();
@@ -1981,7 +1989,8 @@ class RelatoriosController extends AppController
             ->toArray();
 
         $relatorios = $Relatorios->find()
-            ->where(['id IN' => $relatorioIds, 'ic_rascunho' => 0])
+            ->where(['Relatorios.id IN' => $relatorioIds, 'ic_rascunho' => 0])
+            ->contain(['Usuarios'])
             ->all()
             ->indexBy('id')
             ->toArray();
@@ -2020,6 +2029,7 @@ class RelatoriosController extends AppController
         $this->set([
             'escolaName' => $escolaName,
             'escola_id' => $escola_id,
+            'relatorios' => $relatorios,
             'pendenciasPorRelatorio' => $pendenciasPorRelatorio,
             'menorDimensaoPorRelatorio' => $menorDimensaoPorRelatorio,
         ]);

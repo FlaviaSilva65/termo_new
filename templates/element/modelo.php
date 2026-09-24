@@ -1,21 +1,5 @@
 <div class="row col-11 mx-auto">
     <?php
-
-    echo
-    '<div class="w-100 d-flex align-items-center pt-3 px-0 justify-content-between">
-        <div class="d-flex ms-2">
-            <div class="rounded-circle bg-white border-light-secondary me-2 d-flex align-items-center justify-content-center shadow" style="width:3rem;height:3rem;">
-                <i class="bi bi-buildings-fill fs-3 text-dark-primary"></i>
-            </div>
-            <div class="">
-                <h5 class="mb-0 text-dark-primary fw-bold">' . $titulo . '</h5>
-                <div class="d-flex justify-content-end">
-                    <p class="alert alert-primary rounded-pill fs-7 me-2">Total de Escolas: ' . count($titulos) . '</p>
-                    <p class="alert alert-danger rounded-pill fs-7">Total de Pendencias: ' . $totalPendencias . '</p>
-                </div>
-            </div>
-        </div>
-    </div>';
     foreach ($titulos as $key => $titulo):
         echo
         '<div class="col-12 col-sm-6 col-lg-4 col-xxl-3 g-3 d-flex">

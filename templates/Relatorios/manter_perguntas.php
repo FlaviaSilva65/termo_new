@@ -23,7 +23,7 @@
                     <?= $this->Html->link(
                         '<i class="bi bi-floppy me-2"></i>Salvar rascunho',
                         '/',
-                        ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho', 'escape' => false]
+                        ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho ' . $desabilitaSalvarRasc . '', 'escape' => false]
                     ) ?>
                 <?php endif; ?>
                 <?= $this->Html->link(
