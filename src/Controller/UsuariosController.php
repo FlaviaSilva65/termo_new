@@ -546,7 +546,7 @@ class UsuariosController extends AppController
                     // Redireciona conforme o tipo de usuário
                     // if ($tpUsuarioId == 9 || $tpUsuarioId == 6) {
                     //     return $this->redirect(['controller' => 'Usuarios', 'action' => 'index']);
-                } elseif ($tpUsuarioId == 4) {
+                } elseif ($tpUsuarioId == 4 || $tpUsuarioId == 8) {
                     return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_subsecretaria']);
                 } elseif ($tpUsuarioId == 2) {
                     return $this->redirect(['controller' => 'Relatorios', 'action' => 'dash_supervisor', $identity->id]);

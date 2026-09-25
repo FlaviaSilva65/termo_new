@@ -1074,17 +1074,88 @@ class RelatoriosController extends AppController
     public function dashSubsecretaria()
     {
         $this->Authorization->skipAuthorization();
-
-        $unid_escolares_vw = TableRegistry::getTableLocator()->get('UnidEscolaresVw');
+        $identity = $this->request->getAttribute('identity');
+        $Providencias = $this->fetchTable('Providencias');
 
         $usuarios = $this->fetchTable('Usuarios');
-        $supervisoras = $usuarios->find()->where(['tp_usuarios_id' => 2])->contain(['UsuarioUnidEscolares' => ['Setores' => ['UnidEscolares']]])->toArray();
-        // $escolas = $unid_escolares_vw->find('list', keyField: 'id', valueField: 'nm_unid_escolar')->where(['setores_id' => $setor_id])->toArray();
 
-        // debug($supervisoras);
-        // die;
+        $unid_escolares = TableRegistry::getTableLocator()->get('UnidEscolares');
 
-        $this->set(compact('supervisoras'));
+        $titulos = $usuarios->find()
+            ->select(['id', 'texto' => 'nm_usuario'])
+            ->where(['tp_usuarios_id' => 2, 'ic_ativo' => 1])
+            ->contain([
+                'UsuarioUnidEscolares' => function ($q) {
+                    return $q->select(['id', 'usuario_id', 'unid_escolares_id']);
+                },
+                'UsuarioUnidEscolares.UnidEscolares' => function ($q) {
+                    return $q->select(['id', 'sigla', 'nm_unid_escolar'])
+                        ->where(['UnidEscolares.ativo' => 1]);
+                },
+            ])
+            ->orderByAsc('nm_usuario')
+            ->all();
+
+        // Todas as escolas envolvidas (de todos os supervisores)
+        $escolaIds = [];
+        foreach ($titulos as $titulo) {
+            foreach ($titulo->usuario_unid_escolares as $vinculo) {
+                if (!empty($vinculo->unid_escolare)) {
+                    $escolaIds[] = $vinculo->unid_escolare->id;
+                }
+            }
+        }
+        $escolaIds = array_unique($escolaIds);
+
+        // Pendências abertas por escola (ignora relatórios em rascunho)
+        $pendenciasPorEscola = [];
+        if (!empty($escolaIds)) {
+            $pendenciasPorEscola = $Providencias->find()
+                ->select([
+                    'unid_escolar_id' => 'Relatorios.unid_escolar_id',
+                    'total' => $Providencias->find()->func()->count('Providencias.id'),
+                ])
+                ->innerJoinWith('Relatorios')
+                ->where([
+                    'Providencias.status' => 0,
+                    'Relatorios.unid_escolar_id IN' => $escolaIds,
+                    'Relatorios.ic_rascunho' => 0,
+                ])
+                ->groupBy('Relatorios.unid_escolar_id')
+                ->enableAutoFields(false)
+                ->all()
+                ->indexBy('unid_escolar_id')
+                ->toArray();
+        }
+
+        // Situação de assinatura por escola (ignora rascunhos)
+        $situacaoPorEscola = [];
+        if (!empty($escolaIds)) {
+            $relatoriosNaoRascunho = $this->Relatorios->find()
+                ->select(['id', 'unid_escolar_id', 'id_ass_dir', 'id_ass_assis', 'id_ass_sub'])
+                ->where([
+                    'unid_escolar_id IN' => $escolaIds,
+                    'ic_rascunho !=' => 1,
+                ])
+                ->all();
+
+            foreach ($relatoriosNaoRascunho as $rel) {
+                $completo = !empty($rel->id_ass_dir)
+                    && !empty($rel->id_ass_assis)
+                    && !empty($rel->id_ass_sub);
+
+                // Se já existir 1 relatório pendente para a escola, ela fica "Pendente",
+                // mesmo que outro relatório da mesma escola já esteja assinado.
+                if (!isset($situacaoPorEscola[$rel->unid_escolar_id]) || $situacaoPorEscola[$rel->unid_escolar_id] === 'Assinado') {
+                    $situacaoPorEscola[$rel->unid_escolar_id] = $completo ? 'Assinado' : 'Pendente';
+                }
+            }
+        }
+
+        $this->set(compact('titulos', 'pendenciasPorEscola', 'situacaoPorEscola'));
+
+
+        $ano = date('Y');
     }
 
     public function dashSubEscolas($escola_id)
