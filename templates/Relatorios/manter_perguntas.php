@@ -1,3 +1,11 @@
+<?php if ($identity->tp_usuarios_id == 1 || $identity->tp_usuarios_id == 5 || $identity->tp_usuarios_id == 4 || $identity->tp_usuarios_id == 8) {
+    $finalizarPendAction = 'dash_escolas';
+    $parametro = $escola_id ? $escola_id : $escola->id;
+} elseif ($identity->tp_usuarios_id == 2) {
+    $finalizarPendAction = 'dash_supervisor';
+    $parametro = $identity->id;
+}
+?>
 <?php if ($somentePendencias) { ?>
     <div class="col-12 col-lg-11 d-flex mx-auto mt-2 justify-content-center">
         <h6 class="badge rounded-pill bg-danger-subtle text-danger px-5 py-2">
@@ -59,7 +67,7 @@
                 <?php else: ?>
                     <?= $this->Html->link(
                         '<i class="bi bi-check-circle me-2"></i>Finalizar pendências',
-                        ['action' => 'dash-supervisor', $identity->id],
+                        ['action' => $finalizarPendAction, $parametro],
                         ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3', 'escape' => false]
 
 
@@ -120,7 +128,33 @@
         btn.addEventListener('click', function() {
             const perguntaId = this.dataset.perguntaId;
             const hidden = document.querySelector(`input[name="respostas[${perguntaId}][status]"]`);
+            const observacao = document.querySelector(
+                `[name="respostas[${perguntaId}][observacao]"]`
+            );
             const novoStatus = hidden.value == '1' ? '0' : '1';
+
+            if (novoStatus === '0') {
+
+                if (!observacao || observacao.value.trim() === '') {
+
+                    if (observacao) {
+                        observacao.classList.add('is-invalid');
+                        observacao.focus();
+                        // Opcional: rola suavemente até o campo
+                        observacao.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
+                    }
+
+                    return;
+                }
+            }
+
+            // Remove indicação de erro
+            if (observacao) {
+                observacao.classList.remove('is-invalid');
+            }
 
             const icon = this.querySelector('i');
             const span = this.querySelector('span');
@@ -140,6 +174,7 @@
                         relatorio_id: relatorioId,
                         pergunta_id: perguntaId,
                         status: novoStatus,
+                        observacao: observacao ? observacao.value.trim() : '',
                         _csrfToken: csrfToken || '',
                     }),
                 })
@@ -157,7 +192,16 @@
                 })
                 .then(data => {
                     if (!data.success) {
-                        alert('Não foi possível atualizar o status. Tente novamente.');
+                        alert(data.message ||
+                            'Não foi possível atualizar o status. Tente novamente.'
+                        );
+                        if (
+                            data.campo === 'observacao' &&
+                            observacao
+                        ) {
+                            observacao.classList.add('is-invalid');
+                            observacao.focus();
+                        }
                         return;
                     }
 
@@ -181,6 +225,20 @@
                     btnEl.disabled = false;
                 });
         });
+    });
+
+    document.querySelectorAll(
+        'textarea[name^="respostas"][name$="[observacao]"]'
+    ).forEach(function(textarea) {
+
+        textarea.addEventListener('input', function() {
+
+            if (this.value.trim() !== '') {
+                this.classList.remove('is-invalid');
+            }
+
+        });
+
     });
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('form-perguntas'); // form principal (dentro do element perguntas)

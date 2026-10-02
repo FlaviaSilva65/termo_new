@@ -95,9 +95,9 @@ class ProvidenciasTable extends Table
             ->notEmptyString('resposta_id');
 
         $validator
-            ->scalar('descricao')
-            ->requirePresence('descricao', 'create')
-            ->notEmptyString('descricao');
+            ->scalar('observacao')
+            ->requirePresence('observacao', 'create')
+            ->notEmptyString('observacao');
 
         $validator
             ->integer('usuario_id')

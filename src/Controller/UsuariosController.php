@@ -49,9 +49,12 @@ class UsuariosController extends AppController
 
     public function view($id)
     {
-        $usuario = $this->Usuarios->get($id, contain: ['TpUsuarios']);
+        $this->Authorization->skipAuthorization();
+        $usuario = $this->Usuarios->get($id, contain: ['TpUsuarios', 'UsuarioUnidEscolares' => ['UnidEscolares']]);
 
-        $this->set(compact('usuario'));
+        $tp_usuarios = $this->Usuarios->TpUsuarios->find('list');
+
+        $this->set(compact('usuario', 'tp_usuarios'));
     }
 
     public function add()
@@ -63,21 +66,6 @@ class UsuariosController extends AppController
         // $usuario = $this->Usuarios->newEntity(['associated' => ['UsuarioUnidEscolares']]);
 
         if ($this->request->is('post')) {
-
-            // debug($this->request->getData());
-
-
-            // $arquivo = $this->request->getData('arquivo');
-
-            // Essa variável foi criada para teste o croppie
-            // $imagem = $this->request->getData('imagem');
-
-            // debug($imagem);
-
-
-
-            // $permitido = (1024) * 100;
-
 
             $usuario = $this->Usuarios->patchEntity($usuario, $this->request->getData());
 
@@ -97,8 +85,6 @@ class UsuariosController extends AppController
                 'setores_id' => $tp_usuario_id == 2 ? $escola->setores_id : false,
                 'unid_escolares_id' => $tp_usuario_id !== 2 ? $escola->id : false
             ])];
-
-
 
             if (!empty($_POST['imagem'])) {
 
@@ -640,22 +626,32 @@ class UsuariosController extends AppController
 
     public function search()
     {
-        // if ($usuario && $identity->tp_usuarios_id == 9) {
 
         // Criar política para essa function
 
         $this->Authorization->skipAuthorization();
         $this->viewBuilder()->disableAutoLayout(false);
-        $keyword = $this->request->getQuery('keyword');
+        $keyword = trim((string)$this->request->getQuery('keyword'));
 
+
+        $query = $this->Usuarios->find()
+            ->where(['Upper(nm_usuario) LIKE' => '%' . mb_strtoupper($keyword) . '%'])
+            ->contain(['TpUsuarios']);
         if ($keyword != '') {
-            $query = $this->Usuarios->find()
-                ->where(['Upper(nm_usuario) LIKE' => '%' . mb_strtoupper($keyword) . '%'])
-                ->contain(['TpUsuarios']);
+            $query->where([
+                'Usuarios.nm_usuario LIKE' => '%' . $keyword . '%'
+            ]);
         }
 
-        $this->set('usuarios', $query);
-        // }
+        $usuarios = $this->paginate($query, [
+            'limit' => 10
+        ]);
+
+        $this->set(compact('usuarios'));
+
+        if ($this->request->is('ajax')) {
+            return $this->render('/element/usuarioIndexSearch');
+        }
     }
 
     public function reciclar()

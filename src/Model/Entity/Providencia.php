@@ -37,7 +37,7 @@ class Providencia extends Entity
         'unid_escolar_id' => true,
         'pergunta_id' => true,
         'resposta_id' => true,
-        'descricao' => true,
+        'observacao' => true,
         'status' => true,
         'usuario_id' => true,
         'created' => true,

@@ -475,7 +475,7 @@ label { margin-top: 0.5em; }
 .info-rounded-pill{
     border-radius: var(--bs-border-radius-pill);
     padding: 0.1rem 0.5rem 0.08rem 0;
-    cursor : default;
+    /* cursor : default; */
 }
 
 /* ------------------------- Seções_Termo  --------------------------*/

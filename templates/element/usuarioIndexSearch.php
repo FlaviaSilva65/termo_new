@@ -1,95 +1,115 @@
 <div class="container mb-4">
 
-    <div class="col-12 top-purple-bar mx-0 my-2 d-flex justify-content-center align-items-center">
-        <div class="col-3">
-            <h5 class="ms-4 text-dark-primary fw-bold">Nome</h5>
-        </div>
-        <div class="col-2">
-            <h5 class="ms-4 text-dark-primary fw-bold">CPF</h5>
-        </div>
-        <div class="col-2" style="max-width: 240px; white-space: nowrap;overflow:hidden;text-overflow: ellipsis;">
-            <h5 class="ms-5 text-dark-primary fw-bold">E-mail</h5>
-        </div>
-        <div class="col-1">
-            <h5 class="ms-3 text-center text-dark-primary fw-bold">Ativo</h5>
-        </div>
-        <div class="col-1 text-center">
-        <h5 class="ms-3 text-center text-dark-primary fw-bold">Grupo</h5>
-        </div>
-        <div class="col-3 text-center">
+    <table class="table table-striped border rounded overflow-hidden align-middle">
+        <thead>
+            <tr>
+                <th scope="col">
+                    <span class="text-uppercase text-nowrap">Nome</span>
+                </th>
+                <th scope="col">
+                    <span class="text-uppercase text-nowrap">CPF</span>
+                </th>
+                <th scope="col">
+                    <span class="text-uppercase text-nowrap">E-mail</span>
+                </th>
+                <th scope="col">
+                    <span class="text-uppercase text-nowrap">Ativo</span>
+                </th>
+                <th scope="col">
+                    <span class="text-uppercase text-nowrap">Grupo</span>
+                </th>
+                <th scope="col" class="text-center">
+                    <span class="text-uppercase text-nowrap">Ações</span>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($usuarios as $user) : ?>
+                <tr>
+                    <td scope="row"><?= h(trim($user->nm_usuario)) ?></td>
+                    <td scope="row"><?= $user->cd_cpf ?></td>
+                    <td scope="row"><?= $user->email ?></td>
+                    <td scope="row"><?= ($user->ic_ativo == '1' ? '<i class="bi bi-check text-success fs-2"></i>' : 'Inativo') ?></td>
+                    <td scope="row"><?= $user->tp_usuario->nm_tp_usuarios ?></td>
+                    <td>
+                        <div class="d-flex justify-content-center align-items-center gap-1">
+                            <?= $this->Html->link(
+                                '<i class="bi bi-eye"></i>',
+                                ['action' => 'view', $user->id],
+                                [
+                                    'class' => 'btn btn-primary btn-sm rounded-pill px-2 py-1 btn-acao',
+                                    'escape' => false,
+                                    'title' => 'Visualizar'
+                                ]
+                            ) ?>
+                            <?= $this->Html->link(
+                                '<i class="bi bi-pencil-square"></i>',
+                                ['action' => 'edit', $user->id],
+                                [
+                                    'class' => 'btn btn-success btn-sm rounded-pill px-2 py-1 btn-acao',
+                                    'escape' => false,
+                                    'title' => 'Visualizar'
+                                ]
+                            ) ?>
+                            <?php $this->Form->postLink(
+                                '<i class="bi bi-trash3"></i>',
+                                ['action' => 'delete', $user->id],
+                                [
+                                    'class' => 'btn btn-danger btn-sm rounded-pill px-2 py-1 btn-acao',
+                                    'escape' => false,
+                                    'title' => 'Visualizar'
+                                ]
+                            ) ?>
+                        </div>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
 
-        </div>
-    </div>
-
-    <?php foreach ($usuarios as $user) : ?>
-        <div class="col-12 bg-striped mx-0 my-2 d-flex justify-content-center align-items-center">
-            <div class="col-3 ms-3" style="font-size: 0.8rem;">
-                <?= $user->nm_usuario ?>
-            </div>
-            <div class="col-2" style="font-size: 0.8rem;">
-                <?= $user->cd_cpf ?>
-            </div>
-            <div class="col-2" style="font-size: 0.8rem; max-width: 240px; white-space: nowrap;overflow:hidden;text-overflow: ellipsis;">
-                <?= $user->email ?>
-            </div>
-            <div class="col-1 text-center">
-                <?= ($user->ic_ativo == '1' ? '<i class="bi bi-check text-success fs-2"></i>' : 'Inativo') ?>
-            </div>
-            <div class="col-1 text-center">
-                <?= $user->tp_usuario->nm_tp_usuarios ?>
-            </div>
-            <div class="col-3 text-center mt-2">
-                <?= $this->Html->link('<i class="bi bi-eye"></i>', ['action' => 'view', $user->id], ['class' => 'btn btn-sm btn-info text-white px-4', 'escape' => false]) ?>
-                <?= $this->Html->link('<i class="bi bi-pencil-square"></i>', ['action' => 'edit', $user->id], ['class' => 'btn btn-sm btn-primary text-white px-4', 'escape' => false]) ?>
-                <?= $this->Form->postLink('<i class="bi bi-trash3"></i>', ['action' => 'delete', $user->id], ['confirm' => 'Tem certeza?', 'class' => 'btn btn-sm btn-danger text-white px-4', 'escape' => false]) ?>
-            </div>
-        </div>
-    <?php endforeach; ?>
+    </table>
 
     <?php
     $this->Paginator->setTemplates([
-        'number' => '<li class="page-item"><a class="page-link border" href="{{url}}">{{text}}</a></li>',
-        'current' => '<li class="page-item active"><span class="page-link border">{{text}}</span></li>',
-        'first' => '<li class="page-item"><a class="page-link border" href="{{url}}">{{text}}</a></li>',
-        'prev' => '<li class="page-item"><a class="page-link border" href="{{url}}">{{text}}</a></li>',
-        'next' => '<li class="page-item"><a class="page-link border" href="{{url}}">{{text}}</a></li>',
-        'last' => '<li class="page-item"><a class="page-link border" href="{{url}}">{{text}}</a></li>',
+        'sort' => '<span class="text-uppercase text-nowrap">{{text}}</span><a href="{{url}}" class="sort-link d-flex text-muted ps-1 no-print"><i class="bi bi-arrow-down-up" title="Ordenar"></i></a>',
+        'sortAsc' => '<span class="text-uppercase text-nowrap">{{text}}</span><a href="{{url}}" class="sort-link d-flex text-muted ps-1 no-print"><i class="bi bi-sort-up" title="Crescente"></i></a>',
+        'sortDesc' => '<span class="text-uppercase text-nowrap">{{text}}</span><a href="{{url}}" class="sort-link d-flex text-muted ps-1 no-print"><i class="bi bi-sort-down" title="Decrescente"></i></a>',
+        'first' => '<li class="page-item"><a class="page page-link" href="{{url}}" data-page="first" title="Primeira"><i class="bi bi-chevron-double-left"></i></a></li>',
+        'prevActive' => '<li class="page-item"><a class="page page-link" href="{{url}}" data-page="previous" title="Anterior"><i class="bi bi-chevron-left"></i></a></li>',
+        'prevDisabled' => '<li class="page-item disabled"><a class="page page-link" href="{{url}}" data-page="previous" title="Anterior"><i class="bi bi-chevron-left"></i></a></li>',
+        'nextActive' => '<li class="page-item"><a class="page page-link" href="{{url}}" data-page="next" title="Próxima"><i class="bi bi-chevron-right"></i></a></li>',
+        'nextDisabled' => '<li class="page-item disabled"><a class="page page-link" href="{{url}}" data-page="next" title="Próxima"><i class="bi bi-chevron-right"></i></a></li>',
+        'last' => '<li class="page-item"><a class="page page-link" href="{{url}}" data-page="last" title="Última"><i class="bi bi-chevron-double-right"></i></a></li>',
+        'number' => '<li class="page-item"><a class="page page-link page-number" data-page="1" href="{{url}}">{{text}}</a></li>',
+        'current' => '<li class="page-item active"><a class="page page-link page-number" data-page="{{text}}">{{text}}</a></li>',
+        'counterPages' => '<div class="text-uppercase"><span class="no-print"><span>Página</span> <b class="page">{{page}}</b> <span>de</span> <b class="pages">{{pages}}</b><span>, </span></span><span>Exibindo</span> <b class="rows">{{current}}</b> <span>de</span> <b class="count">{{count}}</b> <span>registros</span></div>'
+
     ]);
     ?>
 
-    <?= $this->Paginator->counter(
-        'Página {{page}} de {{pages}} , exibindo {{current}} registros de um total de {{count}}.'
-    ); ?>
+    <?= $this->Paginator->counter(); ?>
     <nav>
         <ul class="pagination">
-            <?= $this->Paginator->first('<i class="bi bi-chevron-double-left"></i>', ['escape' => false]) ?>
-            <?= $this->Paginator->prev(
-                '<i class="bi bi-chevron-left"></i>',
-                [
-                    'escape' => false,
-                    'templates' => [
-                        'prevActive' => '<li class="page-item"><a class="page-link border" rel="prev" href="{{url}}">{{text}}</a></li>',
-                        'prevDisabled' => '<li class="page-item disabled"><span class="page-link border">{{text}}</span></li>',
-                    ]
-                ]
-            ) ?>
+            <?= $this->Paginator->first() ?>
+            <?= $this->Paginator->prev() ?>
 
             <?= $this->Paginator->numbers() ?>
 
-            <?= $this->Paginator->next(
-                '<i class="bi bi-chevron-right"></i>',
-                [
-                    'escape' => false,
-                    'templates' => [
-                        'nextActive' => '<li class="page-item"><a class="page-link border" rel="next" href="{{url}}">{{text}}</a></li>',
-                        'nextDisabled' => '<li class="page-item disabled"><span class="page-link border">{{text}}</span></li>',
-                    ]
-                ]
-            ) ?>
+            <?= $this->Paginator->next() ?>
 
-            <?= $this->Paginator->last('<i class="bi bi-chevron-double-right"></i>', ['escape' => false,]) ?>
+            <?= $this->Paginator->last() ?>
 
         </ul>
 
     </nav>
 </div>
+<style>
+    .btn-acao {
+        width: 38px;
+        height: 26px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+    }
+</style>

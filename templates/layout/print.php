@@ -19,7 +19,7 @@
 
     <?= $this->Html->meta('favicon.png', '/favicon.png', ['type' => 'icon']) ?>
 
-    <?= $this->Html->css(['bootstrap.min', 'bootstrap-icons', 'printer']) ?>
+    <?= $this->Html->css(['bootstrap.min', 'bootstrap_icon_min', 'printer', 'main']) ?>
     <?php // $this->Html->script(['default']) 
     ?>
 
@@ -31,7 +31,7 @@
 
 <body class="position-relative">
     <div class="page-container">
-        <div class="d-flex justify-content-center mb-3 no-print">
+        <!-- <div class="d-flex justify-content-center mb-3 no-print">
             <button class="btn btn-sm btn-primary me-3" onclick="print()" style="width: 176px;">
                 <i class="bi bi-printer"></i>
                 <span>Imprimir</span>
@@ -44,7 +44,7 @@
                     <span>Tornar sem efeito</span>
                 </button>
             <?php endif; ?>
-        </div>
+        </div> -->
         <div class="page-content">
             <div class="print container-fluid">
                 <nav class="header text-black font-aller">

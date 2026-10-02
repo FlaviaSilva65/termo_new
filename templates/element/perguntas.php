@@ -152,6 +152,12 @@
                                 "value" => $respostaSalva->observacao ?? '',
                             ]
                         ) ?>
+                        <div
+                            class="invalid-feedback"
+                            id="erro-observacao-<?= $p->id ?>">
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                            A observação é obrigatória para requerer acompanhamento.
+                        </div>
                     </div>
                 <?php endif; ?>
             </div>

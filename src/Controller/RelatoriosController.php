@@ -30,15 +30,20 @@ class RelatoriosController extends AppController
         $this->Authorization->skipAuthorization();
         $identity = $this->Authentication->getIdentity();
 
+        $tipoUsuario = (int)$identity->tp_usuarios_id;
+
         // Mapeia perfis que só navegam/assinam (não editam nem salvam rascunho)
         $camposAssinaturaPorPerfil = [
             1 => 'id_ass_dir',   // Diretor
             5 => 'id_ass_assis', // Assistente
-            7 => 'id_ass_sub',   // Subsecretaria
+            4 => 'id_ass_sub',   // Subsecretaria
             8 => 'id_ass_sub',   // Subsecretaria-adjunto
         ];
 
-        $modoSomenteLeitura = array_key_exists($identity->tp_usuarios_id, $camposAssinaturaPorPerfil);
+        // $modoSomenteLeitura = array_key_exists($identity->tp_usuarios_id, $camposAssinaturaPorPerfil);
+
+        $modoSomenteLeitura = in_array($tipoUsuario, [1, 4, 5, 8], true);
+
         $campoAssinaturaUsuario = $camposAssinaturaPorPerfil[$identity->tp_usuarios_id] ?? null;
 
         $queryPerguntas = $this->fetchTable('Perguntas');
@@ -126,7 +131,81 @@ class RelatoriosController extends AppController
             // dd($relatorio);
             return $this->redirect(['action' => 'manterPerguntas', $dimensao, $escola_id, $relatorio->id]);
         }
-        // dd($relatorio);
+
+        // Verifica quem está logado e se já assinou ou se pode assinar se for o subSecretario
+
+        $tipoGestor = [];
+
+        foreach ($gestores as $gestor) :
+            $tipoGestor[] = $gestor->tp_usuarios_id;
+        endforeach;
+
+        $tipoGestor = array_unique($tipoGestor);
+
+        $temDiretor = in_array(1, $tipoGestor);
+        $temAssistente = in_array(5, $tipoGestor);
+
+        // $doisGestores = $temDiretor && $temAssistente;
+        // $umGestor = $temDiretor xor $temAssistente;
+
+        $temAssinaturaDir = !empty($relatorio->id_ass_dir);
+        $temAssinaturaAssis = !empty($relatorio->id_ass_assis);
+        $temAssinaturaSup = !empty($relatorio->id_ass_super);
+        $temAssinaturaSub = !empty($relatorio->id_ass_sub);
+
+        $tipoUsuario = $identity->tp_usuarios_id;
+        $emRascunho  = $relatorio->ic_rascunho == 1;
+
+        // // Qual é o tipo, quando existe apenas um (1, 5 ou null)
+
+        $faltam = [];
+        if ($temDiretor && !$temAssinaturaDir)     $faltam[] = 'Diretor';
+        if ($temAssistente && !$temAssinaturaAssis) $faltam[] = 'Assistente';
+
+        $gestoresOk = ($temDiretor || $temAssistente) && empty($faltam);
+        /**
+         * status:
+         *  assinado           - usuário já assinou
+         *  pode_assinar       - usuário pode assinar agora
+         *  rascunho           - supervisor ainda está editando
+         *  aguardando_gestores- subsecretário aguardando diretor/assistente
+         *  nenhum             - perfil sem ação de assinatura
+         */
+        $status = 'nenhum';
+
+        if ($tipoUsuario == 2) {
+            $status = $emRascunho ? 'pode_assinar' : 'assinado';
+        } elseif ($emRascunho && in_array($tipoUsuario, [1, 5, 4, 8])) {
+            $status = 'rascunho';
+        } elseif ($tipoUsuario == 1) {
+            $status = $temAssinaturaDir ? 'assinado' : 'pode_assinar';
+        } elseif ($tipoUsuario == 5) {
+            $status = $temAssinaturaAssis ? 'assinado' : 'pode_assinar';
+        } elseif ($tipoUsuario == 4 || $tipoUsuario == 8) {
+            if ($temAssinaturaSub) {
+                $status = 'assinado';
+            } else {
+                $status = $gestoresOk ? 'pode_assinar' : 'aguardando_gestores';
+            }
+        }
+
+        // Se houver assinatura de algum gestor o Supervisor não pode alterar.
+
+        if ($tipoUsuario === 2) {
+            $modoSomenteLeitura =
+                !empty($relatorio->id_ass_dir)
+                || !empty($relatorio->id_ass_assis);
+        }
+
+        $assinaturaUsuario = [
+            'status'      => $status,
+            'assinatura'  => $status === 'assinado',
+            'podeAssinar' => $status === 'pode_assinar',
+            'faltam'      => $faltam,
+        ];
+
+        $this->set(compact('assinaturaUsuario'));
+
         if ($relatorio->responsavel_id) {
 
             $usuarios_lista = collection($Usuarios->find()->where(['id' => $relatorio->responsavel_id])->all())
@@ -209,7 +288,7 @@ class RelatoriosController extends AppController
         if ($this->request->is(['post', 'put'])) {
             if ($modoSomenteLeitura) {
                 $this->response = $this->response
-                    ->withStatus(403)
+                    // ->withStatus(403)
                     ->withType('application/json')
                     ->withStringBody(json_encode(['success' => false, 'message' => 'Sem permissão para editar.']));
                 $this->autoRender = false;
@@ -247,6 +326,14 @@ class RelatoriosController extends AppController
                     $entityData->resposta = $data['relatorio']['data'];
                     $entityData->status = 1; // sempre considerada "sem pendência"
                     $Respostas->save($entityData);
+                }
+            } elseif (empty($relatorio->data)) {
+                // Se ainda não existe data no relatório, salva a data atual
+                $relatorio = $this->Relatorios->get($id);
+
+                if (empty($relatorio->data)) {
+                    $relatorio->data = new \Cake\I18n\Date();
+                    $this->Relatorios->saveOrFail($relatorio);
                 }
             }
 
@@ -482,6 +569,14 @@ class RelatoriosController extends AppController
             });
         }
 
+        // debug($cargos);
+        // die;
+
+        // $assinaturaUsuario = $this->obterAssinaturaDoUsuario(
+        //     $identity,
+        //     $relatorio
+        // );
+
         $this->set([
             'escolaName' => $escolaName,
             'relatorio' => $relatorio,
@@ -497,7 +592,9 @@ class RelatoriosController extends AppController
             'pendenciasPorDimensao' => $pendenciasPorDimensaoCount,
             'modoSomenteLeitura' => $modoSomenteLeitura,
             'campoAssinaturaUsuario' => $campoAssinaturaUsuario,
-            'desabilitaSalvarRasc' => $desabilitaSalvarRasc
+            'desabilitaSalvarRasc' => $desabilitaSalvarRasc,
+            // 'assinaturaUsuario' => $assinaturaUsuario,
+            // 'cargos' => $cargos
         ]);
     }
 
@@ -786,7 +883,60 @@ class RelatoriosController extends AppController
         } elseif ($identity->tp_usuarios_id == 2) {
             return $this->redirect(['action' => 'dashSupervisor', $identity->id]);
         } elseif ($identity->tp_usuarios_id == 4 || $identity->tp_usuarios_id == 8) {
-            return $this->redirect(['action' => 'dashSupervisorEscolas']);
+            return $this->redirect(['action' => 'dashEscolas', $relatorio->unid_escolar_id]);
+        }
+    }
+
+    private function obterAssinaturaDoUsuario($identity, $relatorio): array
+    {
+        switch ((int)$identity->tp_usuarios_id) {
+            case 1:
+                return [
+                    'campo' => 'id_ass_dir',
+                    'assinatura' => $relatorio->id_ass_dir,
+                    'podeAssinar' => empty($relatorio->id_ass_dir),
+                ];
+
+            case 2:
+                return [
+                    'campo' => 'id_ass_super',
+                    'assinatura' => $relatorio->id_ass_super,
+                    'podeAssinar' => empty($relatorio->id_ass_super),
+                ];
+
+            case 4:
+                return [
+                    'campo' => 'id_ass_sub',
+                    'assinatura' => $relatorio->id_ass_sub,
+                    'podeAssinar' =>
+                    empty($relatorio->id_ass_sub) &&
+                        !empty($relatorio->id_ass_dir) &&
+                        !empty($relatorio->id_ass_assis),
+                ];
+
+            case 5:
+                return [
+                    'campo' => 'id_ass_assis',
+                    'assinatura' => $relatorio->id_ass_assis,
+                    'podeAssinar' => empty($relatorio->id_ass_assis),
+                ];
+
+            case 8:
+                return [
+                    'campo' => 'id_ass_sub',
+                    'assinatura' => $relatorio->id_ass_sub,
+                    'podeAssinar' =>
+                    empty($relatorio->id_ass_sub) &&
+                        !empty($relatorio->id_ass_dir) &&
+                        !empty($relatorio->id_ass_assis),
+                ];
+
+            default:
+                return [
+                    'campo' => null,
+                    'assinatura' => null,
+                    'podeAssinar' => false,
+                ];
         }
     }
 
@@ -1381,16 +1531,6 @@ class RelatoriosController extends AppController
 
         if ($user->tp_usuarios_id == 2) {
 
-            // $relatorios = $this->Relatorios->find()
-            //     ->where([
-            //         'Relatorios.unid_escolar_id' => $escola_id,
-            //         'YEAR(Relatorios.data)' => $ano
-            //     ])
-            //     ->contain(['Usuarios'])
-            //     ->orderBy([
-            //         'Relatorios.id' => 'DESC'
-            //     ])
-            //     ->all();
             $query = $this->Relatorios->find()
                 ->where([
                     'Relatorios.unid_escolar_id' => $escola_id,
@@ -1416,7 +1556,7 @@ class RelatoriosController extends AppController
             }
 
             $relatorios = $query->all();
-        } elseif ($user->tp_usuarios_id == 1 || $user->tp_usuarios_id == 5) {
+        } elseif ($user->tp_usuarios_id != 2) {
             $query = $this->Relatorios->find()
                 ->where([
                     'Relatorios.unid_escolar_id' => $escola_id,
@@ -1427,15 +1567,6 @@ class RelatoriosController extends AppController
                 ->orderBy([
                     'Relatorios.id' => 'DESC'
                 ]);
-            // if ($somentePendentes) {
-            //     $query->where([
-            //         'Relatorios.ic_rascunho !=' => 1,
-            //         'OR' => [
-            //             'Relatorios.id_ass_dir IS' => null,
-            //             'Relatorios.id_ass_assis IS' => null,
-            //         ]
-            //     ]);
-            // }
 
             $relatorios = $query->all();
         }
@@ -1450,6 +1581,16 @@ class RelatoriosController extends AppController
                 ])
                 ->contain(['Relatorios', 'Perguntas'])
                 ->all();
+            foreach ($relatorios as $relatorio) {
+
+                $relatorio->supervisor_pode_editar =
+                    (int)$relatorio->ic_rascunho === 1
+                    ||
+                    (
+                        empty($relatorio->id_ass_dir)
+                        && empty($relatorio->id_ass_assis)
+                    );
+            }
         } else {
             $providencias = $this->Relatorios->Respostas->find()
                 ->where([
@@ -1783,6 +1924,37 @@ class RelatoriosController extends AppController
             $responsavelNome = $responsavel->nm_usuario ?? null;
         }
 
+        if ($relatorio->id_ass_dir != null) {
+            $diretor = $Usuarios->find()
+                ->select(['nm_usuario'])
+                ->where(['id' => $relatorio->id_ass_dir])
+                ->first();
+
+            $this->set(compact('diretor'));
+        }
+        if ($relatorio->id_ass_assis != null) {
+            $assistente = $Usuarios->find()
+                ->select(['nm_usuario'])
+                ->where(['id' => $relatorio->id_ass_assis])
+                ->first();
+            $this->set(compact('assistente'));
+        }
+        if ($relatorio->id_ass_sub != null) {
+            $subsecretario = $Usuarios->find()
+                ->select([
+                    'Usuarios.id',
+                    'Usuarios.nm_usuario',
+                    'Usuarios.tp_usuarios_id',
+                    'TpUsuarios.id',
+                    'TpUsuarios.nm_tp_usuarios'
+                ])
+                ->where(['Usuarios.id' => $relatorio->id_ass_sub])
+                ->contain('TpUsuarios')
+                ->first();
+            $this->set(compact('subsecretario'));
+        }
+        // dd($subsecretario);
+
         $this->set([
             'relatorio' => $relatorio,
             'escolaName' => $escolaName,
@@ -2113,19 +2285,40 @@ class RelatoriosController extends AppController
         $this->request->allowMethod(['post']);
         $this->autoRender = false;
 
-        $relatorioId = $this->request->getData('relatorio_id');
-        $perguntaId = $this->request->getData('pergunta_id');
-        $status = (int)$this->request->getData('status'); // 1 = resolvida, 0 = pendente
+        $relatorioId = (int)$this->request->getData('relatorio_id');
+        $perguntaId  = (int)$this->request->getData('pergunta_id');
+        $status      = (int)$this->request->getData('status');
+        $observacao  = trim((string)$this->request->getData('observacao'));
 
-        $Respostas = $this->fetchTable('Respostas');
-        $Providencia = $this->fetchTable('Providencias');
+        $Respostas   = $this->fetchTable('Respostas');
+        $Providencias = $this->fetchTable('Providencias');
+        $Relatorios  = $this->fetchTable('Relatorios');
+
+        /*
+     * Status 0 = requer acompanhamento.
+     * Nesse caso a observação é obrigatória.
+     */
+        if ($status === 0 && $observacao === '') {
+
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Informe a observação antes de requerer acompanhamento.',
+                    'campo' => 'observacao'
+                ]));
+        }
 
         $entity = $Respostas->find()
-            ->where(['Respostas.relatorio_id' => $relatorioId, 'Respostas.pergunta_id' => $perguntaId])
+            ->where([
+                'Respostas.relatorio_id' => $relatorioId,
+                'Respostas.pergunta_id' => $perguntaId
+            ])
             ->first();
 
         if (!$entity) {
-            return $this->response->withStatus(404)
+
+            return $this->response
                 ->withType('application/json')
                 ->withStringBody(json_encode([
                     'success' => false,
@@ -2133,36 +2326,22 @@ class RelatoriosController extends AppController
                 ]));
         }
 
-        $entity->status = $status;
+        /*
+     * ---------------------------------------------------------
+     * REQUER ACOMPANHAMENTO
+     * ---------------------------------------------------------
+     */
+        if ($status === 0) {
 
-        if (!$Respostas->save($entity)) {
-            return $this->response
-                ->withStatus(500)
-                ->withType('application/json')
-                ->withStringBody(json_encode([
-                    'success' => false,
-                    'message' => 'Não foi possível salvar o status da resposta.'
-                ]));
-        }
-
-        if ($status == 0) {
-            // Reaberta como pendência
-            $existente = $Providencia->find()
+            $relatorio = $Relatorios->find()
                 ->where([
-                    'Providencia.relatorio_id' => $relatorioId,
-                    'Providencia.pergunta_id' => $perguntaId
+                    'Relatorios.id' => $relatorioId
                 ])
                 ->first();
 
-            $identity = $this->Authentication->getIdentity();
-
-            $relatorio = $this->Relatorios->find()
-                ->where(['id' => $relatorioId])
-                ->first();
-
             if (!$relatorio) {
+
                 return $this->response
-                    ->withStatus(404)
                     ->withType('application/json')
                     ->withStringBody(json_encode([
                         'success' => false,
@@ -2170,18 +2349,49 @@ class RelatoriosController extends AppController
                     ]));
             }
 
-            $providenciaEntity = $existente ?: $Providencia->newEntity([
-                'relatorio_id' => $relatorioId,
-                'pergunta_id' => $perguntaId,
-                'usuario_id' => $identity->id,
-            ]);
-            $providenciaEntity->unid_escolar_id = $relatorio->unid_escolar_id;
-            $providenciaEntity->status = 0;
-            $providenciaEntity->resposta_id = $entity->id;
+            $identity = $this->Authentication->getIdentity();
 
-            if (!$Providencia->save($providenciaEntity)) {
+            /*
+         * Procura providência já existente para
+         * essa pergunta/relatório.
+         */
+            $providenciaEntity = $Providencias->find()
+                ->where([
+                    'Providencias.relatorio_id' => $relatorioId,
+                    'Providencias.pergunta_id' => $perguntaId
+                ])
+                ->first();
+
+            /*
+         * Se não existir, cria.
+         */
+            if (!$providenciaEntity) {
+
+                $providenciaEntity = $Providencias->newEmptyEntity();
+
+                $providenciaEntity->relatorio_id = $relatorioId;
+                $providenciaEntity->pergunta_id = $perguntaId;
+                $providenciaEntity->usuario_id = $identity->id;
+            }
+
+            $providenciaEntity->unid_escolar_id =
+                $relatorio->unid_escolar_id;
+
+            $providenciaEntity->resposta_id =
+                $entity->id;
+
+            $providenciaEntity->status = 0;
+
+            /*
+         * AQUI salva a observação da resposta
+         * dentro da Providencia.
+         */
+            $providenciaEntity->observacao =
+                $observacao;
+
+            if (!$Providencias->save($providenciaEntity)) {
+
                 return $this->response
-                    ->withStatus(500)
                     ->withType('application/json')
                     ->withStringBody(json_encode([
                         'success' => false,
@@ -2189,9 +2399,43 @@ class RelatoriosController extends AppController
                         'errors' => $providenciaEntity->getErrors()
                     ]));
             }
+
+            /*
+         * Só altera a resposta depois que a
+         * providência foi salva corretamente.
+         */
+            $entity->status = 0;
+
+            if (!$Respostas->save($entity)) {
+
+                return $this->response
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Não foi possível atualizar a resposta.'
+                    ]));
+            }
         } else {
-            // Marca como resolvida
-            $Providencia->updateAll(
+
+            /*
+         * -----------------------------------------------------
+         * RESOLVE O ACOMPANHAMENTO
+         * -----------------------------------------------------
+         */
+
+            $entity->status = 1;
+
+            if (!$Respostas->save($entity)) {
+
+                return $this->response
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Não foi possível atualizar a resposta.'
+                    ]));
+            }
+
+            $Providencias->updateAll(
                 ['status' => 1],
                 [
                     'relatorio_id' => $relatorioId,

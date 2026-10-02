@@ -25,15 +25,15 @@
 
     <!-- Cabeçalho do Termo -->
     <div class="text-center mb-4">
-
     </div>
-
     <hr>
-
-
-
     <!-- Perguntas agrupadas por dimensão, em ordem -->
     <?php foreach ($perguntasPorDimensao as $dimensaoId => $perguntas): ?>
+        <?php if (
+            in_array((int)$identity->tp_usuarios_id, [1, 5], true) && (int)$dimensaoId === 7
+        ) {
+            continue;
+        } ?>
         <div class="mb-4">
             <h5 class="text-primary fw-bold border-bottom pb-2 mb-3">
                 DIMENSÃO <?= h($dimensaoId) ?> —
@@ -52,16 +52,20 @@
                         <div class="ms-3">
                             <?php foreach ($ocorrenciasPorPergunta[$p->id] ?? [] as $ocorrencia): ?>
                                 <?php $marcado = in_array($ocorrencia->id, $ocorrenciaIdsSalvas); ?>
-                                <span class="badge <?= $marcado ? 'bg-success' : 'bg-light text-secondary border' ?> me-1 mb-1">
-                                    <?= $marcado ? '☑' : '☐' ?> <?= h($ocorrencia->nm_tp_ocorrencia) ?>
-                                </span>
+
+                                <?php if ($marcado): ?>
+                                    <span class="badge bg-secondary me-1 mb-1">
+                                        <i class="bi bi-check2-circle"></i>
+                                        <?= h($ocorrencia->nm_tp_ocorrencia) ?>
+                                    </span>
+                                <?php endif; ?>
                             <?php endforeach; ?>
                         </div>
 
                     <?php elseif ($p->tipo === 'radio'): ?>
                         <p class="ms-3 mb-0">
                             <strong>Resposta:</strong>
-                            <?= h($respostaSalva->resposta ?? '—') ?>
+                            <?= h($respostaSalva->resposta == 0 ? "Não" : "Sim") ?>
                         </p>
 
                     <?php elseif ($p->tipo === 'data'): ?>
@@ -82,17 +86,103 @@
     <?php endforeach; ?>
 
     <!-- Assinaturas -->
-    <div class="row mt-5 pt-4">
-        <div class="col-4 text-center">
-            <div class="border-top border-dark pt-1">Supervisor(a)</div>
-        </div>
-        <div class="col-4 text-center">
-            <div class="border-top border-dark pt-1">Direção</div>
-        </div>
-        <div class="col-4 text-center">
-            <div class="border-top border-dark pt-1">Assistência</div>
-        </div>
+    <div class="row d-flex justify-content-center">
+        <!--- Supervisor -->
+        <?php if ($relatorio->id_ass_super != null) { ?>
+            <div class="col-4 mb-4 text-center">
+                <div class="d-flex p-1 alert alert-light shadow" style="height:3.5em;">
+                    <?= $this->Html->image('logo_ass_azul.svg', ['class' => 'h-100 pe-2']) ?>
+                    <div class="my-2 border-end border-3 border-dark-primary rounded-pill"></div>
+                    <div class="ps-2 py-1">
+                        <!-- Somente 1º e 2º nome -->
+                        <p class="fs-7 fw-bold text-dark-primary text-nowrap mb-0 lh-1"><?= $relatorio->usuario->nm_usuario ?></p>
+                        <div class="my-1 border-bottom border-3 border-dark-primary rounded-pill"></div>
+                        <p class="fs-8 text-dark mb-0 text-nowrap">Supervisor(a)r</p>
+                    </div>
+                </div>
+            </div>
+        <?php } else { ?>
+            <div class="col-4 mt-5 pt-2 text-center">
+                <div class="border-top border-dark pt-1">Supervisor(a)</div>
+            </div>
+        <?php } ?>
+        <!--- Diretor -->
+        <?php if ($relatorio->id_ass_dir != null) { ?>
+            <div class="col-4 text-center">
+                <div class="d-flex p-1 alert alert-light shadow" style="height:3.5em;">
+                    <?= $this->Html->image('logo_ass_azul.svg', ['class' => 'h-100 pe-2']) ?>
+                    <div class="my-2 border-end border-3 border-dark-primary rounded-pill"></div>
+                    <div class="ps-2 py-1">
+                        <!-- Somente 1º e 2º nome -->
+                        <p class="fs-7 fw-bold text-dark-primary text-nowrap mb-0 lh-1"><?= h(nomeResumido($diretor->nm_usuario)) ?></p>
+                        <div class="my-1 border-bottom border-3 border-dark-primary rounded-pill"></div>
+                        <p class="fs-8 text-dark mb-0 text-nowrap">Diretor(a)</p>
+                    </div>
+                </div>
+            </div>
+        <?php } elseif($relatorio->id_ass_sub == null) { ?>
+            <div class="col-4 mt-5 pt-2 text-center">
+                <div class="border-top border-dark pt-1">Diretor(a)</div>
+            </div>
+        <?php } ?>
+
+        <!--- Assistente -->
+
+        <?php if ($relatorio->id_ass_assis != null) { ?>
+            <div class="col-4 text-center">
+                <div class="d-flex p-1 alert alert-light shadow" style="height:3.5em;">
+                    <?= $this->Html->image('logo_ass_azul.svg', ['class' => 'h-100 pe-2']) ?>
+                    <div class="my-2 border-end border-3 border-dark-primary rounded-pill"></div>
+                    <div class="ps-2 py-1">
+                        <!-- Somente 1º e 2º nome -->
+                        <p class="fs-7 fw-bold text-dark-primary text-nowrap mb-0 lh-1"><?= $assistente->nm_usuario ?></p>
+                        <div class="my-1 border-bottom border-3 border-dark-primary rounded-pill"></div>
+                        <p class="fs-8 text-dark mb-0 text-nowrap">Assistente</p>
+                    </div>
+                </div>
+            </div>
+        <?php } elseif($relatorio->id_ass_sub == null) { ?>
+            <div class="col-4 mt-5 pt-2 text-center">
+                <div class="border-top border-dark pt-1">Assistente</div>
+            </div>
+        <?php } ?>
+        <!--- Subsecretária ou Adjunto -->
+        <?php if ($relatorio->id_ass_sub != null) { ?>
+            <div class="col-4 text-center">
+                <div class="d-flex p-1 alert alert-light shadow" style="height:3.5em;">
+                    <?= $this->Html->image('logo_ass_azul.svg', ['class' => 'h-100 pe-2']) ?>
+                    <div class="my-2 border-end border-3 border-dark-primary rounded-pill"></div>
+                    <div class="ps-1 py-1">
+                        <!-- Somente 1º e 2º nome -->
+                        <p class="fs-7 fw-bold text-dark-primary text-nowrap mb-0 lh-1"><?= $subsecretario->nm_usuario ?></p>
+                        <div class="my-1 border-bottom border-3 border-dark-primary rounded-pill"></div>
+                        <p class="fs-8 text-dark mb-0 text-nowrap"><?= $subsecretario->tp_usuario->nm_tp_usuarios ?></p>
+                    </div>
+                </div>
+            </div>
+        <?php } else { ?>
+            <div class="col-4 mt-5 pt-2 text-center">
+                <div class="border-top border-dark pt-1">Subsecretário(a)</div>
+            </div>
+        <?php } ?>
     </div>
 
 
 </body>
+<?php
+function nomeResumido($nome)
+{
+    $nome = trim($nome ?? '');
+
+    if (mb_strlen($nome) > 26) {
+        $partes = preg_split('/\s+/', $nome);
+
+        // Se tiver pelo menos 3 nomes
+        if (count($partes) >= 3) {
+            return $partes[0] . ' ' . $partes[1] . ' ' . end($partes);
+        }
+    }
+
+    return $nome;
+}
+?>

@@ -50,7 +50,7 @@
                 '<div class="d-flex align-items-center justify-content-between py-2 hover rounded border-top border-light-secondary">
                     <div class="d-flex align-items-center">
                         <i class="bi bi-circle-fill text-' . $corBolinha . ' me-2 fs-9"></i>
-                        <h6 class="mb-0 text-dark fs-7">' .
+                        <h6 class="mb-0 text-dark">' .
                             h($vinculo->unid_escolare->sigla) . ' ' .
                             h($vinculo->unid_escolare->nm_unid_escolar) .
                         '</h6>

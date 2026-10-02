@@ -1,10 +1,3 @@
-<?php
-$identity = $this->request->getAttribute('identity');
-$assinadoPeloSupervisorLogado = !empty($relatorio->id_ass_super)
-    && $identity
-    && $relatorio->id_ass_super == $identity->id;
-?>
-
 <div class="p-2 d-print-none" style="width:20rem;">
     <div class="w-100 bg-white p-2 rounded-top shadow">
         <p class="mb-0 fs-6 mb-0 fw-bold text-primary">SEÇÕES DO TERMO</p>
@@ -68,24 +61,48 @@ $assinadoPeloSupervisorLogado = !empty($relatorio->id_ass_super)
     endforeach;
     echo '<div class="bg-white rounded-bottom text-center p-2 shadow">';
 
-    if ($assinadoPeloSupervisorLogado) {
+    switch ($assinaturaUsuario['status']) {
+        case 'assinado':
+            echo '<span class="btn btn-success btn-sm btn-s-pill shadow disabled">
+                <i class="bi bi-check-circle me-1"></i>Assinado
+              </span>';
+            break;
 
-        echo '<span type="button" class="btn btn-success btn-sm btn-s-pill shadow mostraBtn" disabled>
-                    <i class="bi bi-check-circle me-1"></i>Assinado
-                </span>';
-    } else {
-       echo $this->Form->postLink(
-            '<i class="bi bi-check-circle me-1"></i>Concluir e Assinar',
-            ['action' => 'concluirAssinatura', $relatorio->id],
-            [
-                'class' => 'btn btn-success btn-sm btn-s-pill shadow d-none mostraBtn',
-                'escape' => false,
-                'confirm' => 'Tem certeza que deseja concluir e assinar este termo?'
-            ]
-        ) .
-            '<h6 class="mb-0 small text-danger d-inline-block mostraBtn"><b><i class="bi bi-exclamation-circle me-1"></i></b>Conclua todas as seções para assinar</h6>';
+        case 'pode_assinar':
+            echo $this->Form->postLink(
+                '<i class="bi bi-check-circle me-1"></i>Concluir e Assinar',
+                ['action' => 'concluirAssinatura', $relatorio->id],
+                [
+                    'id'      => 'btnAssinar',
+                    'class'   => 'btn btn-success btn-sm btn-s-pill shadow d-none',
+                    'escape'  => false,
+                    'confirm' => 'Tem certeza que deseja concluir e assinar este termo?'
+                ]
+            ) .
+                '<h6 id="msgConcluir" class="mb-0 small text-danger d-inline-block">
+            <b><i class="bi bi-exclamation-circle me-1"></i></b>Conclua todas as seções para assinar
+         </h6>';
+            break;
+
+        case 'rascunho':
+            echo '<h6 class="mb-0 small text-secondary">
+                <i class="bi bi-hourglass-split me-1"></i>Aguardando o supervisor finalizar o termo
+              </h6>';
+            break;
+
+        case 'aguardando_gestores':
+            $faltam = $assinaturaUsuario['faltam'];
+            $texto  = empty($faltam)
+                ? 'Nenhum Diretor ou Assistente cadastrado para esta unidade'
+                : 'Aguardando assinatura do ' . implode(' e do ', $faltam);
+
+            echo '<h6 class="mb-0 small text-danger">
+                <b><i class="bi bi-exclamation-circle me-1"></i></b>' . h($texto) . '
+              </h6>';
+            break;
     }
-    echo   '</div>';
+
+    echo '</div>';
     ?>
 </div>
 <script>
@@ -187,16 +204,17 @@ $assinadoPeloSupervisorLogado = !empty($relatorio->id_ass_super)
         document.getElementsByClassName('qtdRespondidas')[0].innerHTML = current + ' de ' + total + ' respondidas';
 
         // Amarelo Bootstrap -> Verde Bootstrap
-        const btns = document.getElementsByClassName('mostraBtn');
-        console.log(btns);
+        const btnAssinar = document.getElementById('btnAssinar');
+        const msgConcluir = document.getElementById('msgConcluir');
+
         if (percent >= 100) {
             bar.style.background = '#198754';
-            btns[0].classList.replace('d-none', 'd-inline-block');
-            btns[1].classList.replace('d-inline-block', 'd-none');
+            if (btnAssinar) btnAssinar.classList.replace('d-none', 'd-inline-block');
+            if (msgConcluir) msgConcluir.classList.replace('d-inline-block', 'd-none');
         } else {
-            bar.style.background = 'linear-gradient(90deg, #FFC107 0%, #FD7E14 100%)'; // Amarelo -> Laranja
-            btns[0].classList.replace('d-inline-block', 'd-none');
-            btns[1].classList.replace('d-none', 'd-inline-block');
+            bar.style.background = 'linear-gradient(90deg, #FFC107 0%, #FD7E14 100%)';
+            if (btnAssinar) btnAssinar.classList.replace('d-inline-block', 'd-none');
+            if (msgConcluir) msgConcluir.classList.replace('d-none', 'd-inline-block');
         }
     }
     atualizaProgressBar();

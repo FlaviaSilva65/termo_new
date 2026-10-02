@@ -2,42 +2,78 @@
 
     <div class="bg-white shadow rounded border-secondary mt-4 pt-2">
         <?php
-        // dd($identity->tp_usuarios_id);
-        
+        $tipoUsuarioLogado = (int)$identity->tp_usuarios_id;
+
         foreach ($relatorios as $i => $relatorio) : ?>
             <?php
-            if ($relatorio->usuario->tp_usuarios_id == 2 && $relatorio->situacao == 2) {
-                $situacao = 2;
-            } else {
-                $situacao = $relatorio->situacao;
-            }
-            switch ($situacao) {
-                case 1:
+            if ($tipoUsuarioLogado === 2) {
+                if ($relatorio->supervisor_pode_editar) {
+
                     $classeSituacao = 'alert-warning';
                     $textoSituacao = 'Rascunho';
                     $acao = 'Editar';
                     $icone = '<i class="bi bi-pencil-square"></i>';
-                    break;
 
-                case 2:
+                    $urlAcao = [
+                        'action' => 'manterPerguntas',
+                        1,
+                        $escola->id,
+                        $relatorio->id
+                    ];
+                } else {
                     $classeSituacao = 'alert-success';
                     $textoSituacao = 'Assinado';
                     $acao = 'Visualizar';
                     $icone = '<i class="bi bi-eye-fill"></i>';
-                    break;
 
-                case 3:
-                    $classeSituacao = 'alert-danger';
-                    $textoSituacao = 'Pendente';
-                    $acao = $relatorio->usuario->tp_usuarios_id == 2 ? 'Visualizar' : 'Assinar';
-                    $icone = $relatorio->usuario->tp_usuarios_id == 2 ? '<i class="bi bi-eye-fill"></i>' : '<i class="bi bi-pen-fill"></i>';
-                    break;
+                    $urlAcao = [
+                        'action' => 'visualizarPdf',
+                        $relatorio->id
+                    ];
+                }
+            } elseif (($tipoUsuarioLogado == 1 && $relatorio->id_ass_dir == null) || ($tipoUsuarioLogado == 5 && $relatorio->id_ass_assis == null)) {
+                $classeSituacao = 'alert-danger';
+                $textoSituacao = 'Pendente';
+                $acao = 'Assinar';
+                $icone = '<i class="bi bi-pen-fill"></i>';
+                $urlAcao = [
+                    'action' => 'manterPerguntas',
+                    1,
+                    $escola->id,
+                    $relatorio->id
+                ];
+            } elseif (($tipoUsuarioLogado == 1 && $relatorio->id_ass_dir != null) || ($tipoUsuarioLogado == 5 && $relatorio->id_ass_assis != null)) {
+                $classeSituacao = 'alert-success';
+                $textoSituacao = 'Assinado';
+                $acao = 'Visualizar';
+                $icone = '<i class="bi bi-eye-fill"></i>';
 
-                default:
-                    $classeSituacao = 'alert-secondary';
-                    $textoSituacao = 'Não informado';
-                    $acao = 'Visualizar';
-                    $icone = '<i class="bi bi-exclamation"></i>';
+                $urlAcao = [
+                    'action' => 'visualizarPdf',
+                    $relatorio->id
+                ];
+            } elseif (($tipoUsuarioLogado == 4 || $tipoUsuarioLogado == 8) && $relatorio->id_ass_sub == null) {
+                $classeSituacao = 'alert-danger';
+                $textoSituacao = 'Pendente';
+                $acao = 'Assinar';
+                $icone = '<i class="bi bi-pen-fill"></i>';
+
+                $urlAcao = [
+                    'action' => 'manterPerguntas',
+                    1,
+                    $escola->id,
+                    $relatorio->id
+                ];
+            } elseif (($tipoUsuarioLogado == 4 || $tipoUsuarioLogado == 8) && $relatorio->id_ass_sub != null) {
+                $classeSituacao = 'alert-success';
+                $textoSituacao = 'Assinado';
+                $acao = 'Visualizar';
+                $icone = '<i class="bi bi-eye-fill"></i>';
+
+                $urlAcao = [
+                    'action' => 'visualizarPdf',
+                    $relatorio->id
+                ];
             }
             ?>
 
@@ -66,7 +102,7 @@
                         <p class="text-secondary lh-1 fs-7"> </p>
                         <?= $this->Html->link(
                             '<span class="icone-circulo">' . $icone . '</span>' . $acao,
-                            ['action' => 'manter_perguntas', 1, $escola->id, $relatorio->id],
+                            $urlAcao,
                             [
                                 'class' => 'btn btn-primary btn-sm btn-s-pill shadow btn-visualizar-assinar me-2',
                                 'style' => 'width: 165px; justify-content: center;',
