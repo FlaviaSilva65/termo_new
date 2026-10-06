@@ -1569,6 +1569,15 @@ class RelatoriosController extends AppController
                 ]);
 
             $relatorios = $query->all();
+
+            if ($user->tp_usuarios_id == 1 || $user->tp_usuarios_id == 5) {
+
+                $idsComPendencia = $this->idsComPendencia($relatorios->extract('id')->toList());
+
+                foreach ($relatorios as $relatorio) {
+                    $relatorio->pendencia = in_array($relatorio->id, $idsComPendencia, true) ? 'sim' : 'nao';
+                }
+            }
         }
         if ($user->tp_usuarios_id == 2) {
 
@@ -1620,6 +1629,28 @@ class RelatoriosController extends AppController
         $this->set('relatoriosPendentes', $relatoriosPendentes);
         $this->set('pendencias', $providencias);
         $this->set(compact('escola', 'ano', 'relatorios', 'somentePendentes'));
+    }
+
+    /**
+     * Retorna os IDs (entre os informados) que possuem alguma resposta com status = 0.
+     */
+    private function idsComPendencia(array $relatorioIds): array
+    {
+        if (empty($relatorioIds)) {
+            return [];
+        }
+
+        return $this->fetchTable('Respostas')
+            ->find()
+            ->select(['relatorio_id'])
+            ->where([
+                'Respostas.relatorio_id IN' => $relatorioIds,
+                'Respostas.status' => 0,
+            ])
+            ->distinct(['Respostas.relatorio_id'])
+            ->all()
+            ->extract('relatorio_id')
+            ->toList();
     }
 
     public function dashDiretor($id = null)

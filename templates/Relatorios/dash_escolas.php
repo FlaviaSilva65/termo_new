@@ -11,8 +11,9 @@
 
                     $classeSituacao = 'alert-warning';
                     $textoSituacao = 'Rascunho';
+                    $cor = 'warning';
                     $acao = 'Editar';
-                    $icone = '<i class="bi bi-pencil-square"></i>';
+                    $icone = 'pencil-square';
 
                     $urlAcao = [
                         'action' => 'manterPerguntas',
@@ -23,8 +24,9 @@
                 } else {
                     $classeSituacao = 'alert-success';
                     $textoSituacao = 'Assinado';
+                    $cor = 'primary';
                     $acao = 'Visualizar';
-                    $icone = '<i class="bi bi-eye-fill"></i>';
+                    $icone = 'eye-fill';
 
                     $urlAcao = [
                         'action' => 'visualizarPdf',
@@ -34,19 +36,45 @@
             } elseif (($tipoUsuarioLogado == 1 && $relatorio->id_ass_dir == null) || ($tipoUsuarioLogado == 5 && $relatorio->id_ass_assis == null)) {
                 $classeSituacao = 'alert-danger';
                 $textoSituacao = 'Pendente';
-                $acao = 'Assinar';
-                $icone = '<i class="bi bi-pen-fill"></i>';
-                $urlAcao = [
-                    'action' => 'manterPerguntas',
-                    1,
-                    $escola->id,
-                    $relatorio->id
-                ];
+
+                if (($relatorio->pendencia ?? 'nao') === 'sim') {
+                    // Existe resposta com acompanhamento requerido: não pode assinar, só visualizar
+                    $cor = 'primary';
+                    $acao = 'Visualizar';
+                    $icone = 'eye-fill';
+                    $urlAcao = [
+                        'action' => 'manterPerguntas',
+                        1,
+                        $escola->id,
+                        $relatorio->id
+                    ];
+                } else {
+                    $cor = 'danger';
+                    $acao = 'Assinar';
+                    $icone = 'pen-fill';
+                    $urlAcao = [
+                        'action' => 'manterPerguntas',
+                        1,
+                        $escola->id,
+                        $relatorio->id
+                    ];
+                }
+
+                // $cor = 'danger';
+                // $acao = 'Assinar';
+                // $icone = 'pen-fill';
+                // $urlAcao = [
+                //     'action' => 'manterPerguntas',
+                //     1,
+                //     $escola->id,
+                //     $relatorio->id
+                // ];
             } elseif (($tipoUsuarioLogado == 1 && $relatorio->id_ass_dir != null) || ($tipoUsuarioLogado == 5 && $relatorio->id_ass_assis != null)) {
                 $classeSituacao = 'alert-success';
+                $cor = 'primary';
                 $textoSituacao = 'Assinado';
                 $acao = 'Visualizar';
-                $icone = '<i class="bi bi-eye-fill"></i>';
+                $icone = 'eye-fill';
 
                 $urlAcao = [
                     'action' => 'visualizarPdf',
@@ -55,8 +83,9 @@
             } elseif (($tipoUsuarioLogado == 4 || $tipoUsuarioLogado == 8) && $relatorio->id_ass_sub == null) {
                 $classeSituacao = 'alert-danger';
                 $textoSituacao = 'Pendente';
+                $cor = 'danger';
                 $acao = 'Assinar';
-                $icone = '<i class="bi bi-pen-fill"></i>';
+                $icone = 'pen-fill';
 
                 $urlAcao = [
                     'action' => 'manterPerguntas',
@@ -66,9 +95,10 @@
                 ];
             } elseif (($tipoUsuarioLogado == 4 || $tipoUsuarioLogado == 8) && $relatorio->id_ass_sub != null) {
                 $classeSituacao = 'alert-success';
+                $cor = 'primary';
                 $textoSituacao = 'Assinado';
                 $acao = 'Visualizar';
-                $icone = '<i class="bi bi-eye-fill"></i>';
+                $icone = 'eye-fill';
 
                 $urlAcao = [
                     'action' => 'visualizarPdf',
@@ -100,7 +130,7 @@
                     </div>
                     <div class="col text-end">
                         <p class="text-secondary lh-1 fs-7"> </p>
-                        <?= $this->Html->link(
+                        <?php /* $this->Html->link(
                             '<span class="icone-circulo">' . $icone . '</span>' . $acao,
                             $urlAcao,
                             [
@@ -108,7 +138,16 @@
                                 'style' => 'width: 165px; justify-content: center;',
                                 'escape' => false
                             ]
-                        ) ?>
+                        ) */ ?>
+
+
+                        <?= $this->element('btn_pill', [
+                            'label' => $acao,
+                            'cor' => $cor,
+                            'icon'  => $icone,
+                            'url'   => $urlAcao,
+                            'class' => 'btn-pill--fixed',
+                        ]) ?>
 
                     </div>
                 </div>
@@ -119,7 +158,7 @@
         ?>
     </div>
     <div class="w-100 text-end mt-3">
-        <?= $this->Html->link(
+        <?php /* $this->Html->link(
             '<span class="icone-circulo"><i class="bi bi-arrow-left"></i></span>Voltar',
             'javascript:history.back()',
             [
@@ -127,10 +166,20 @@
                 'style' => 'width: 165px; justify-content: center;',
                 'escape' => false
             ]
-        ) ?>
+        ) */ ?>
+
+
+        <?= $this->element('btn_pill', [
+            'label' => 'Voltar',
+            'cor' => 'success',
+            'icon'  => 'arrow-left',
+            'url'   => 'javascript:history.back()',
+            'class' => 'btn-pill--fixed',
+        ]) ?>
+
     </div>
 </div>
-<style>
+<!-- <style>
     .btn-visualizar-assinar {
         position: relative;
         display: inline-flex;
@@ -160,4 +209,4 @@
         align-items: center;
         justify-content: center;
     }
-</style>
+</style> -->

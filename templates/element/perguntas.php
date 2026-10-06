@@ -156,14 +156,14 @@
                             class="invalid-feedback"
                             id="erro-observacao-<?= $p->id ?>">
                             <i class="bi bi-exclamation-circle me-1"></i>
-                            A observação é obrigatória para requerer acompanhamento.
+                            Informe a observação para registrar o acompanhamento como pendência.
                         </div>
                     </div>
                 <?php endif; ?>
             </div>
             <div class="border-start ms-2 px-2 d-flex flex-wrap align-items-center d-print-none">
                 <div style="width:136px;">
-                    <div class="d-flex justify-content-center">
+                    <div class="d-flex justify-content-center mb-2">
                         <i class="bi bi-check-circle me-2 fs-6 text-success"></i>
                         <div>
                             <p class="d-flex mb-0 fs-7 text-success lh-1">
@@ -178,21 +178,22 @@
                     <?php
                     $statusSalvo = $respostaSalva->status ?? 1;
                     ?>
-                    <?php if ($p->tipo != "data"): ?>
+                    <?php if ($p->tipo != "data" && $p->id != 35): ?>
+                        <?php
+                        $cor = $statusSalvo ? 'success' : 'warning';
+                        $icone = $statusSalvo ? 'check-circle' : 'exclamation-circle';
+                        $texto = $statusSalvo ? 'Requerido' : 'Requer';
+                        ?>
+
                         <button
                             type="button"
-                            class="btn-acompanhamento btn btn-<?= $statusSalvo ? 'success' : 'warning' ?> btn-sm btn-s-pill shadow fs-8 py-0"
+                            class="btn-acompanhamento btn btn-<?= $cor ?> btn-sm btn-pill btn-pill--start btn-pill--block"
                             data-pergunta-id="<?= $p->id ?>">
-                            <div class="d-flex align-items-center">
-
-                                <i class="bi bi-<?= $statusSalvo ? 'check' : 'exclamation' ?>-circle me-1 text-white fs-6 py-2 lh-1"></i>
-
-                                <span class="lh-sm">
-                                    <?= $statusSalvo ? 'Requerido' : 'Requer' ?><br>
-                                    Acompanhamento
-                                </span>
-
-                            </div>
+                            <span class="btn-pill__icon fs-6 text-white"><i class="bi bi-<?= $icone ?>"></i></span>
+                            <span class="btn-pill__label btn-pill__label--multi fs-8">
+                                <span class="js-acomp-texto"><?= $texto ?></span>
+                                <span>Acompanhamento</span>
+                            </span>
                         </button>
                     <?php endif; ?>
                 </div>

@@ -21,32 +21,67 @@
         $this->element('perguntas') ?>
     <div class="bg-white p-2 rounded-bottom shadow d-flex justify-content-between align-items-center d-print-none">
         <?php if (empty($somentePendencias)) : ?>
-            <?= $this->Html->link(
-                '<i class="bi bi-arrow-left me-2"></i>Etapa enterior',
+            <?php /* $this->Html->link(
+                '<i class="bi bi-arrow-left"></i>Etapa enterior',
                 ['action' => 'manterPerguntas', $dimensao - 1, $escola_id, $relatorio->id],
                 ['class' => 'btn btn-primary btn-sm btn-s-pill shadow link-navegacao ' . $desabilitaAnt . '', 'escape' => false]
-            ) ?>
+            )*/ ?>
+
+            <?= $this->element('btn_pill', [
+                'label' => 'Etapa enterior',
+                'cor' => 'primary',
+                'icon'  => 'arrow-left',
+                'url'   => ['action' => 'manterPerguntas', $dimensao - 1, $escola_id, $relatorio->id],
+                'class' => 'btn-pill--fixed link-navegacao ' . $desabilitaAnt . '',
+            ]) ?>
+
             <div class="">
                 <?php if (empty($modoSomenteLeitura)): ?>
-                    <?= $this->Html->link(
+                    <?php /* $this->Html->link(
                         '<i class="bi bi-floppy me-2"></i>Salvar rascunho',
                         '/',
                         ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3 btn-salvar-rascunho ' . $desabilitaSalvarRasc . '', 'escape' => false]
-                    ) ?>
+                    ) */ ?>
+
+                    <?= $this->element('btn_pill', [
+                        'label' => 'Salvar rascunho',
+                        'cor' => 'success',
+                        'icon'  => 'floppy',
+                        'url'   => ['/'],
+                        'class' => 'btn-pill--fixed btn-salvar-rascunho' . $desabilitaSalvarRasc . '',
+                    ]) ?>
                 <?php endif; ?>
-                <?= $this->Html->link(
+                <?php /* $this->Html->link(
                     'Próxima etapa<i class="bi bi-arrow-right ms-2"></i>',
                     ['action' => 'manterPerguntas', $dimensao + 1, $escola_id, $relatorio->id],
                     ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-navegacao ' . $desabilitaProx . '', 'escape' => false]
-                ) ?>
+                ) */ ?>
+
+                <?= $this->element('btn_pill', [
+                    'label' => 'Próxima etapa',
+                    'cor' => 'primary',
+                    'icon'  => 'arrow-right',
+                    'position' => 'end',
+                    'url'   => ['action' => 'manterPerguntas', $dimensao + 1, $escola_id, $relatorio->id],
+                    'class' => 'btn-pill--fixed link-navegacao' . $desabilitaProx . '',
+                ]) ?>
+
             </div>
         <?php else: ?>
 
-            <?= $this->Html->link(
+            <?php /* $this->Html->link(
                 '<i class="bi bi-arrow-left me-2"></i>Voltar ao painel',
                 ['action' => 'dash-supervisor', $identity->id],
                 ['class' => 'btn btn-primary btn-sm btn-s-pill shadow', 'escape' => false]
-            ) ?>
+            ) */ ?>
+
+            <?= $this->element('btn_pill', [
+                'label' => 'Voltar ao painel',
+                'cor' => 'primary',
+                'icon'  => 'arrow-left',
+                'url'   => ['action' => 'dash-supervisor', $identity->id],
+                'class' => 'btn-pill--fixed',
+            ]) ?>
 
             <div class="">
                 <?php
@@ -59,19 +94,38 @@
                 }
                 ?>
                 <?php if ($proximaComPendencia): ?>
-                    <?= $this->Html->link(
+                    <?php /* $this->Html->link(
                         'Próxima pendência<i class="bi bi-arrow-right ms-2"></i>',
                         ['action' => 'manterPerguntas', $proximaComPendencia, $escola_id, $relatorio->id, '?' => ['pendencias' => 1]],
                         ['class' => 'btn btn-primary btn-sm btn-e-pill shadow link-secao', 'escape' => false]
-                    ) ?>
+                    ) */ ?>
+
+
+                    <?= $this->element('btn_pill', [
+                        'label' => 'Próxima pendência',
+                        'cor' => 'primary',
+                        'icon'  => 'arrow-right',
+                        'position' => 'end',
+                        'url'   => ['action' => 'manterPerguntas', $proximaComPendencia, $escola_id, $relatorio->id, '?' => ['pendencias' => 1]],
+                        'class' => 'btn-pill--fixed link-secao',
+                    ]) ?>
+
+
                 <?php else: ?>
-                    <?= $this->Html->link(
+                    <?php /* $this->Html->link(
                         '<i class="bi bi-check-circle me-2"></i>Finalizar pendências',
                         ['action' => $finalizarPendAction, $parametro],
                         ['class' => 'btn btn-success btn-sm btn-s-pill shadow me-3', 'escape' => false]
+                    ) */ ?>
 
+                    <?= $this->element('btn_pill', [
+                        'label' => 'Finalizar pendências',
+                        'cor' => 'success',
+                        'icon'  => 'check-circle',
+                        'url'   => ['action' => $finalizarPendAction, $parametro],
+                        'class' => 'btn-pill--fixed',
+                    ]) ?>
 
-                    ) ?>
                 <?php endif; ?>
             </div>
         <?php endif; ?>
@@ -124,6 +178,14 @@
         atualizaCheckbox();
     });
 
+    function erroObservacao(perguntaId, mostrar) {
+        const campo = document.querySelector(`[name="respostas[${perguntaId}][observacao]"]`);
+        const msg = document.getElementById(`erro-observacao-${perguntaId}`);
+
+        if (campo) campo.classList.toggle('is-invalid', mostrar);
+        if (msg) msg.classList.toggle('d-block', mostrar);
+    }
+
     document.querySelectorAll('.btn-acompanhamento').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const perguntaId = this.dataset.perguntaId;
@@ -134,19 +196,16 @@
             const novoStatus = hidden.value == '1' ? '0' : '1';
 
             if (novoStatus === '0') {
-
                 if (!observacao || observacao.value.trim() === '') {
+                    erroObservacao(perguntaId, true);
 
                     if (observacao) {
-                        observacao.classList.add('is-invalid');
                         observacao.focus();
-                        // Opcional: rola suavemente até o campo
                         observacao.scrollIntoView({
                             behavior: 'smooth',
                             block: 'center'
                         });
                     }
-
                     return;
                 }
             }
@@ -156,8 +215,8 @@
                 observacao.classList.remove('is-invalid');
             }
 
-            const icon = this.querySelector('i');
-            const span = this.querySelector('span');
+            const icon = this.querySelector('.btn-pill__icon i');
+            const texto = this.querySelector('.js-acomp-texto');
             const btnEl = this;
 
             btnEl.disabled = true; // evita clique duplo durante o request
@@ -179,26 +238,23 @@
                     }),
                 })
                 .then(async res => {
-                    const texto = await res.text();
+                    const resposta = await res.text();
 
                     console.log('Status HTTP:', res.status);
-                    console.log('Resposta do servidor:', texto);
+                    console.log('Resposta do servidor:', resposta);
 
                     if (!res.ok) {
-                        throw new Error('HTTP ' + res.status + ': ' + texto);
+                        throw new Error('HTTP ' + res.status + ': ' + resposta);
                     }
 
-                    return JSON.parse(texto);
+                    return JSON.parse(resposta);
                 })
                 .then(data => {
                     if (!data.success) {
                         alert(data.message ||
                             'Não foi possível atualizar o status. Tente novamente.'
                         );
-                        if (
-                            data.campo === 'observacao' &&
-                            observacao
-                        ) {
+                        if (data.campo === 'observacao' && observacao) {
                             observacao.classList.add('is-invalid');
                             observacao.focus();
                         }
@@ -207,15 +263,17 @@
 
                     hidden.value = novoStatus;
 
-                    if (novoStatus === '1') {
-                        btnEl.classList.replace('btn-warning', 'btn-success');
-                        icon.classList.replace('bi-exclamation-circle', 'bi-check-circle');
-                        span.innerHTML = somentePendencias ? 'Resolvido<br>Acompanhamento' : 'Requerido<br>Acompanhamento';
-                    } else {
-                        btnEl.classList.replace('btn-success', 'btn-warning');
-                        icon.classList.replace('bi-check-circle', 'bi-exclamation-circle');
-                        span.innerHTML = 'Requer<br>Acompanhamento';
-                    }
+                    const marcado = novoStatus === '1';
+
+                    btnEl.classList.toggle('btn-success', marcado);
+                    btnEl.classList.toggle('btn-dark-warning', !marcado);
+
+                    icon.classList.toggle('bi-check-circle', marcado);
+                    icon.classList.toggle('bi-exclamation-circle', !marcado);
+
+                    texto.textContent = marcado ?
+                        (somentePendencias ? 'Resolvido' : 'Requerido') :
+                        'Requer';
                 })
                 .catch(err => {
                     console.error('Erro ao atualizar status:', err);
@@ -234,7 +292,8 @@
         textarea.addEventListener('input', function() {
 
             if (this.value.trim() !== '') {
-                this.classList.remove('is-invalid');
+                const m = this.name.match(/^respostas\[(\d+)\]/);
+                if (m) erroObservacao(m[1], false);
             }
 
         });

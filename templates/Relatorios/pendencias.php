@@ -29,7 +29,7 @@
                         <?= count($itens) ?> Pendência<?= count($itens) > 1 ? 's' : '' ?>
                     </span>
                 </div>
-                <?= $this->Html->link(
+                <?php /* $this->Html->link(
                     '<i class="bi bi-eye-fill me-1"></i>Ver Pendências',
                     [
                         'action' => 'manterPerguntas',
@@ -42,17 +42,37 @@
                         'class' => 'btn btn-primary btn-sm btn-s-pill shadow',
                         'escape' => false,
                     ]
-                ) ?>
+                ) */ ?>
+                <?= $this->element('btn_pill', [
+                    'label' => 'Ver Pendências',
+                    'cor' => 'primary',
+                    'icon'  => 'eye-fill',
+                    'url'   => [
+                        'action' => 'manterPerguntas',
+                        $menorDimensaoPorRelatorio[$relatorioId] ?? 1,
+                        $escola_id,
+                        $relatorioId,
+                        '?' => ['pendencias' => 1],
+                    ],
+                ]) ?>
             </div>
         <?php endforeach; ?>
     </div>
 
     <div class="w-100 text-end mt-3">
-        <?= $this->Html->link(
-            '<i class="bi bi-arrow-left me-4"></i>Voltar',
+        <?php /* $this->Html->link(
+            '<span class="icone-circulo"><i class="bi bi-arrow-left"></i></span>Voltar',
             ['action' => 'dash-supervisor', $identity->id],
-            ['class' => 'btn btn-primary btn-sm btn-s-pill shadow pe-5 me-2', 'escape' => false]
-        ) ?>
+            ['class' => 'btn btn-primary btn-sm btn-s-pill shadow btn-visualizar-assinar pe-5 me-2',
+            'style' => 'width: 155px; justify-content: center;',
+             'escape' => false]
+        ) */ ?>
+        <?= $this->element('btn_pill', [
+            'label' => 'Voltar',
+            'cor' => 'success',
+            'icon'  => 'arrow-left',
+            'url'   => ['action' => 'dash-supervisor', $identity->id],
+            'class' => 'btn-pill--fixed',
+        ]) ?>
     </div>
-</div>
 </div>

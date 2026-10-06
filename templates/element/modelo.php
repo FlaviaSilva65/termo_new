@@ -31,13 +31,13 @@
             '</div>
                     <div class="bg-white text-dark rounded-bottom p-2 shadow flex-grow-1">
                         <div class="w-100 bg-white py-1 boder-bottom d-flex justify-content-between fs-7">
-                            <div class="col-4 px-0">
+                            <div class="col-3 px-0">
                                 <p class="text-dark-primary me-3">' . count($titulo->itens) . ' Termos</p>
                             </div>
                             <div class="col-4 text-center px-0">
                                 <p class="text-dark-primary"> Criado em: </p>
                             </div>
-                            <div class="col-4 text-end pe-2">
+                            <div class="col-5 text-end pe-2">
                                 <p class="text-dark-primary me-2"> Situação</p>
                             </div>
                             
@@ -64,14 +64,14 @@
             echo
             $this->Html->link(
                 '<div class="row align-items-center py-2 mx-0 hover rounded border-top border-light-secondary">
-                    <div class="col-4 d-flex align-items-center px-0">
+                    <div class="col-3 d-flex align-items-center px-0">
                     <i class="bi bi-circle-fill text-' . $cor . ' me-2 fs-9"></i>
                         <h6 class="mb-0 text-dark">' . str_pad($item->termo_id, 3, '0', STR_PAD_LEFT) . '/' . $item->data->format('Y') . '</h6>
                     </div>' .
                     '<div class="col-4 text-center px-0">
                         <h6 class="mb-0 text-dark">' . $item->data . '</h6>
                         </div>' .
-                    '<div class="col-4 d-flex justify-content-end px-o">
+                    '<div class="col-5 d-flex justify-content-end px-o">
                         <span class="alert alert-' . $cor . ' rounded-pill text-center text-nowrap mb-0 py-1 px-2 fs-8">' . $msg . '
                         </span>
                     </div>
